@@ -27,16 +27,16 @@ CREATE TABLE TipoAlojamiento (
     CONSTRAINT pk_tipo_alojamiento PRIMARY KEY (id_tipo_alojamiento),
     CONSTRAINT uq_tipo_alojamiento_nombre UNIQUE (nombre)
 );
-COMMENT ON TABLE tipo_alojamiento IS
+COMMENT ON TABLE tipoalojamiento IS
 'Catálogo de tipos de alojamiento turístico ofrecidos por TurismoUQ.';
 
-COMMENT ON COLUMN tipo_alojamiento.id_tipo_alojamiento IS
+COMMENT ON COLUMN tipoalojamiento.id_tipo_alojamiento IS
 'Identificador único del tipo de alojamiento.';
 
-COMMENT ON COLUMN tipo_alojamiento.nombre IS
+COMMENT ON COLUMN tipoalojamiento.nombre IS
 'Nombre del tipo de alojamiento, por ejemplo hotel, finca cafetera, glamping u hostal.';
 
-COMMENT ON COLUMN tipo_alojamiento.descripcion IS
+COMMENT ON COLUMN tipoalojamiento.descripcion IS
 'Descripción del tipo de alojamiento.';
 
 
@@ -234,16 +234,16 @@ CREATE TABLE ReservaHabitacion (
     CONSTRAINT ck_reserva_hab_fechas CHECK (fecha_checkout > fecha_checkin),
     CONSTRAINT ck_reserva_hab_huespedes CHECK (cantidad_huespedes > 0)
 );
-COMMENT ON TABLE reserva_habitacion IS
+COMMENT ON TABLE reservahabitacion IS
 'Detalle de las habitaciones incluidas en una reserva. Permite que una reserva incluya varias habitaciones con fechas particulares.';
 
-COMMENT ON COLUMN reserva_habitacion.fecha_checkin IS
+COMMENT ON COLUMN reservahabitacion.fecha_checkin IS
 'Fecha de entrada específica de esta habitación.';
 
-COMMENT ON COLUMN reserva_habitacion.fecha_checkout IS
+COMMENT ON COLUMN reservahabitacion.fecha_checkout IS
 'Fecha de salida específica de esta habitación.';
 
-COMMENT ON COLUMN reserva_habitacion.cantidad_huespedes IS
+COMMENT ON COLUMN reservahabitacion.cantidad_huespedes IS
 'Cantidad de huéspedes asignados a esta habitación.';
 
 
@@ -313,13 +313,13 @@ CREATE TABLE ReservaServicio (
     CONSTRAINT ck_reserva_serv_cantidad CHECK (cantidad > 0),
     CONSTRAINT ck_reserva_serv_precio CHECK (precio_unitario > 0)
 );
-COMMENT ON TABLE reserva_servicio IS
+COMMENT ON TABLE reservaservicio IS
 'Servicios complementarios incluidos en una reserva y cantidad solicitada de cada servicio.';
 
-COMMENT ON COLUMN reserva_servicio.cantidad IS
+COMMENT ON COLUMN reservaservicio.cantidad IS
 'Cantidad de unidades del servicio solicitadas en la reserva.';
 
-COMMENT ON COLUMN reserva_servicio.precio_unitario IS
+COMMENT ON COLUMN reservaservicio.precio_unitario IS
 'Precio por unidad aplicado al momento de la reserva.';
 
 
@@ -364,14 +364,14 @@ CREATE TABLE UsuarioSistema (
     CONSTRAINT ck_usuario_alojamiento_rol CHECK ((rol = 'ADMINISTRADOR' AND id_alojamiento IS NULL)
         OR (rol = 'ENCARGADO' AND id_alojamiento IS NOT NULL))
 );
-COMMENT ON TABLE usuario_sistema IS
+COMMENT ON TABLE usuariosistema IS
 'Usuarios internos de TurismoUQ, incluyendo administradores y encargados de alojamientos.';
 
-COMMENT ON COLUMN usuario_sistema.rol IS
+COMMENT ON COLUMN usuariosistema.rol IS
 'Rol del usuario: ADMINISTRADOR o ENCARGADO.';
 
-COMMENT ON COLUMN usuario_sistema.nombre_usuario IS
+COMMENT ON COLUMN usuariosistema.nombre_usuario IS
 'Nombre utilizado para iniciar sesión.';
 
-COMMENT ON COLUMN usuario_sistema.id_alojamiento IS
+COMMENT ON COLUMN usuariosistema.id_alojamiento IS
 'Alojamiento administrado por el usuario cuando su rol es ENCARGADO.';
