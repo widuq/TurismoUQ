@@ -164,3 +164,157 @@ ORDER BY anio, mes;
 SELECT * 
 FROM Temporada 
 ORDER BY anio, fecha_inicio;
+
+
+---
+
+-- 5. Consulta parametrizada utilizando variables de sustitución (&)
+-- que muestra cuántas reservas tuvo y cuánto dinero facturó 
+-- cada alojamiento entre dos fechas elegidas por el usuario, ordenado de mayor a menor
+
+-- Ingresar fecha en el formato YYYY-MM-DD
+SELECT 
+    m.nombre AS municipio,
+    a.nombre AS alojamiento,
+    COUNT(DISTINCT r.id_reserva) AS total_reservas,
+    SUM(p.monto) AS ingresos_totales
+    
+FROM Municipio m
+JOIN Alojamiento a ON m.id_municipio = a.id_municipio
+JOIN Habitacion h ON a.id_alojamiento = h.id_alojamiento
+JOIN ReservaHabitacion rh ON h.id_habitacion = rh.id_habitacion
+JOIN Reserva r ON rh.id_reserva = r.id_reserva
+JOIN Pago p ON r.id_reserva = p.id_reserva
+WHERE r.estado = 'COMPLETADA'
+
+  -- Obtiene el valor ingresado por el usuario
+  AND r.fecha_reserva BETWEEN TO_DATE('&fecha_inicio', 'YYYY-MM-DD') 
+                          AND TO_DATE('&fecha_fin', 'YYYY-MM-DD')
+GROUP BY m.id_municipio, m.nombre, a.id_alojamiento, a.nombre
+ORDER BY ingresos_totales DESC;
+
+-- 6. UNPIVOT
+
+-- Primero se pivotea
+
+-- 6.1. PIVOT: Transforma niveles de temporada en columnas
+
+-- El reporte muestra el ingreso total acumulado  por nivel de temporada (Alta, Media y Baja) 
+
+WITH DatosBase AS (
+    SELECT 
+        t.anio,
+        EXTRACT(MONTH FROM r.fecha_reserva) AS mes, 
+        t.nivel AS temporada, 
+        SUM(p.monto) AS total_ingresos
+    FROM Reserva r
+    JOIN Pago p ON r.id_reserva = p.id_reserva
+    JOIN ReservaHabitacion rh ON r.id_reserva = rh.id_reserva
+    JOIN Habitacion h ON rh.id_habitacion = h.id_habitacion
+    JOIN Tarifa tar ON h.id_habitacion = tar.id_habitacion
+    JOIN Temporada t ON tar.id_temporada = t.id_temporada
+    
+    -- Se eligen los primeros 6 meses del año
+    WHERE r.estado = 'COMPLETADA'
+      AND r.fecha_reserva BETWEEN TO_DATE('2026-01-01', 'YYYY-MM-DD') 
+                              AND TO_DATE('2026-06-30', 'YYYY-MM-DD')
+    
+    -- Se agrupa por año, mes y nivel de temporada
+    GROUP BY 
+        t.anio, 
+        EXTRACT(MONTH FROM r.fecha_reserva), 
+        t.nivel
+)
+
+ -- Toma la lista vertical y la convierte en columnas
+SELECT * 
+FROM DatosBase
+PIVOT (
+    SUM(total_ingresos)
+    FOR temporada IN ('ALTA' AS ALTA, 'MEDIA' AS MEDIA, 'BAJA' AS BAJA)
+)
+ORDER BY anio, mes;
+
+
+
+--
+
+-- 6.2. UNPIVOT: Tansforma columnas de temporada de vuelta a filas
+
+WITH MatrizTemporadas AS (
+    -- 1. Primero se pivotea (Columnas: ALTA, MEDIA, BAJA)
+    SELECT * 
+    FROM (
+        SELECT 
+            t.anio,
+            EXTRACT(MONTH FROM r.fecha_reserva) AS mes, 
+            t.nivel AS temporada, 
+            SUM(p.monto) AS total_ingresos
+        FROM Reserva r
+        JOIN Pago p ON r.id_reserva = p.id_reserva
+        JOIN ReservaHabitacion rh ON r.id_reserva = rh.id_reserva
+        JOIN Habitacion h ON rh.id_habitacion = h.id_habitacion
+        JOIN Tarifa tar ON h.id_habitacion = tar.id_habitacion
+        JOIN Temporada t ON tar.id_temporada = t.id_temporada
+        
+        -- Se eligen los primeros 6 meses del año
+        WHERE r.estado = 'COMPLETADA'
+          AND r.fecha_reserva BETWEEN TO_DATE('2026-01-01', 'YYYY-MM-DD') 
+                                  AND TO_DATE('2026-06-30', 'YYYY-MM-DD')
+        
+        -- Se agrupa por año, mes y nivel de temporada
+        GROUP BY 
+            t.anio, 
+            EXTRACT(MONTH FROM r.fecha_reserva), 
+            t.nivel
+    )
+    PIVOT (
+        SUM(total_ingresos)
+        FOR temporada IN ('ALTA' AS ALTA, 'MEDIA' AS MEDIA, 'BAJA' AS BAJA)
+    )
+)
+-- Toma la matriz horizontal y la convierte nuevamente en filas verticales
+SELECT 
+    anio,
+    mes,
+    tipo_temporada,
+    ingresos
+FROM MatrizTemporadas
+UNPIVOT (
+    ingresos FOR tipo_temporada IN (ALTA, MEDIA, BAJA)
+)
+ORDER BY anio, mes, tipo_temporada;
+
+
+-- CONSULTA GERENCIAL: Métodos de Pago Preferidos e Ingresos Recaudados
+
+
+-- CONSULTA GERENCIAL 2: Análisis de Pérdidas Financieras por Cancelación
+WITH TotalCanceladas AS (
+    SELECT COUNT(*) AS total_global FROM Reserva WHERE estado = 'CANCELADA'
+)
+SELECT 
+    m.nombre AS municipio,
+    a.nombre AS alojamiento,
+    COUNT(DISTINCT r.id_reserva) AS total_reservas_canceladas,
+    NVL(SUM(p.monto), 0) AS ingresos_perdidos_cop,
+    
+    -- Porcentaje sobre el total global
+    ROUND(
+        (COUNT(DISTINCT r.id_reserva) * 100.0) / NULLIF(tc.total_global, 0), 2
+    ) AS pct_contribucion_cancelaciones
+
+FROM Municipio m
+JOIN Alojamiento a ON m.id_municipio = a.id_municipio
+JOIN Habitacion h ON a.id_alojamiento = h.id_alojamiento
+JOIN ReservaHabitacion rh ON h.id_habitacion = rh.id_habitacion
+JOIN Reserva r ON rh.id_reserva = r.id_reserva
+LEFT JOIN Pago p ON r.id_reserva = p.id_reserva
+CROSS JOIN TotalCanceladas tc
+WHERE r.estado = 'CANCELADA'
+GROUP BY 
+    m.nombre, 
+    a.nombre,
+    tc.total_global
+ORDER BY 
+    ingresos_perdidos_cop DESC;
