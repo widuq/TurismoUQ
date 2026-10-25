@@ -34,6 +34,13 @@ DECLARE
 
     v_serv_nombre       t_texto;
     v_serv_precio       t_num;
+    
+    -- Reservas y pagos
+    v_fecha_reserva      DATE;
+    v_fecha_pago1        DATE;
+    v_fecha_pago2        DATE;
+    v_intentos_hab       NUMBER;
+    v_solapado           NUMBER;
 
     /* ============================================================
        VARIABLES GENERALES
@@ -632,10 +639,29 @@ BEGIN
        
        TOTAL = 6
        ============================================================ */
+       
+       INSERT INTO Temporada VALUES (
+        1, 
+        'Temporada Alta 2024', 
+        'ALTA', DATE '2024-01-01', 
+        DATE '2024-02-29', 2024
+    );
+    INSERT INTO Temporada VALUES (
+        2, 
+        'Temporada Media 2024', 
+        'MEDIA', DATE '2024-03-01', 
+        DATE '2024-08-31', 2024
+    );
+    INSERT INTO Temporada VALUES (
+        3, 
+        'Temporada Baja 2024', 
+        'BAJA', DATE '2024-09-01', 
+        DATE '2024-12-31', 2024
+    );
 
     INSERT INTO Temporada
     VALUES (
-        1,
+        4,
         'Temporada Alta 2025',
         'ALTA',
         DATE '2025-01-01',
@@ -645,7 +671,7 @@ BEGIN
 
     INSERT INTO Temporada
     VALUES (
-        2,
+        5,
         'Temporada Media 2025',
         'MEDIA',
         DATE '2025-03-01',
@@ -655,7 +681,7 @@ BEGIN
 
     INSERT INTO Temporada
     VALUES (
-        3,
+        6,
         'Temporada Baja 2025',
         'BAJA',
         DATE '2025-09-01',
@@ -665,7 +691,7 @@ BEGIN
 
     INSERT INTO Temporada
     VALUES (
-        4,
+        7,
         'Temporada Alta 2026',
         'ALTA',
         DATE '2026-01-01',
@@ -675,7 +701,7 @@ BEGIN
 
     INSERT INTO Temporada
     VALUES (
-        5,
+        8,
         'Temporada Media 2026',
         'MEDIA',
         DATE '2026-03-01',
@@ -685,7 +711,7 @@ BEGIN
 
     INSERT INTO Temporada
     VALUES (
-        6,
+        9,
         'Temporada Baja 2026',
         'BAJA',
         DATE '2026-09-01',
@@ -697,21 +723,18 @@ BEGIN
     /* ============================================================
        6. TARIFAS
        
-       400 habitaciones × 6 temporadas
-       = 2.400 tarifas
-       
-       El precio depende del tipo de habitación y del nivel
-       de temporada.
+       400 habitaciones × 9 temporadas
+       = 3.600 tarifas
        ============================================================ */
 
     FOR h IN 1..400 LOOP
 
-        FOR s IN 1..6 LOOP
+        FOR s IN 1..9 LOOP
 
-            IF s IN (1,4) THEN
+            IF s IN (1, 4, 7) THEN
                 v_multiplicador := 1.25;
 
-            ELSIF s IN (2,5) THEN
+            ELSIF s IN (2, 5, 8) THEN
                 v_multiplicador := 1.00;
 
             ELSE
@@ -731,7 +754,7 @@ BEGIN
 
             INSERT INTO Tarifa
             VALUES (
-                ((h - 1) * 6) + s,
+                ((h - 1) * 9) + s,
                 h,
                 s,
                 v_precio
@@ -816,149 +839,90 @@ BEGIN
        servicios para poder generar 40.000 líneas de servicios.
        ============================================================ */
 
+
     FOR i IN 1..25000 LOOP
 
         /* Año */
-
         IF i <= 5000 THEN
             v_anio := 2024;
-
         ELSIF i <= 15000 THEN
             v_anio := 2025;
-
         ELSE
             v_anio := 2026;
-
         END IF;
 
-
         /* Mes con estacionalidad */
-
         v_mes := obtener_mes;
-
 
         v_inicio_mes :=
             ADD_MONTHS(
                 DATE '2024-01-01',
-                ((v_anio - 2024) * 12) +
-                (v_mes - 1)
+                ((v_anio - 2024) * 12) + (v_mes - 1)
             );
 
+        v_dias_mes := LAST_DAY(v_inicio_mes) - v_inicio_mes + 1;
 
-        v_dias_mes :=
-            LAST_DAY(v_inicio_mes) -
-            v_inicio_mes + 1;
+        v_checkin := TRUNC(v_inicio_mes + TRUNC(DBMS_RANDOM.VALUE(0, v_dias_mes)));
+        v_noche := 2 + TRUNC(DBMS_RANDOM.VALUE(0, 6));
+        v_checkout := v_checkin + v_noche;
 
+        /* Fecha de reserva coherente: entre 1 y 45 días antes del checkin */
+        v_fecha_reserva := v_checkin - TRUNC(DBMS_RANDOM.VALUE(1, 46));
 
-        v_checkin :=
-            TRUNC(
-                v_inicio_mes +
-                TRUNC(
-                    DBMS_RANDOM.VALUE(
-                        0,
-                        v_dias_mes
-                    )
-                )
-            );
+        v_cliente := TRUNC(DBMS_RANDOM.VALUE(1, 3001));
 
-
-        /* Estadía entre 2 y 7 noches */
-
-        v_noche :=
-            2 +
-            TRUNC(DBMS_RANDOM.VALUE(0,6));
-
-
-        v_checkout :=
-            v_checkin + v_noche;
-
-
-        /* Fecha de reserva antes del check-in */
-
-        v_cliente :=
-            TRUNC(DBMS_RANDOM.VALUE(1,3001));
-
-
-        /* Alojamientos con mayor demanda */
-
+        /* Distribución de demanda en alojamientos */
         IF i <= 20000 THEN
-
-            v_alojamiento :=
-                TRUNC(
-                    DBMS_RANDOM.VALUE(1,16)
-                );
-
+            v_alojamiento := TRUNC(DBMS_RANDOM.VALUE(1, 16));
         ELSE
-
-            v_alojamiento :=
-                TRUNC(
-                    DBMS_RANDOM.VALUE(16,61)
-                );
-
+            v_alojamiento := TRUNC(DBMS_RANDOM.VALUE(16, 61));
         END IF;
-
 
         /* Estado */
-
-        IF MOD(i,20) <= 13 THEN
+        IF MOD(i, 20) <= 13 THEN
             v_estado := 'COMPLETADA';
-
-        ELSIF MOD(i,20) <= 16 THEN
+        ELSIF MOD(i, 20) <= 16 THEN
             v_estado := 'CONFIRMADA';
-
-        ELSIF MOD(i,20) <= 18 THEN
+        ELSIF MOD(i, 20) <= 18 THEN
             v_estado := 'CANCELADA';
-
         ELSE
             v_estado := 'PENDIENTE';
-
         END IF;
-
 
         v_res_alojamiento(i) := v_alojamiento;
         v_res_estado(i) := v_estado;
 
+        /* Búsqueda de habitación libre (sin solapamiento de fechas) */
+        v_intentos_hab := 0;
+        LOOP
+            v_offset1 := TRUNC(DBMS_RANDOM.VALUE(0, v_cantidad_hab(v_alojamiento)));
+            v_hab1 := v_inicio_hab(v_alojamiento) + v_offset1;
 
-        /* Primera habitación */
+            SELECT COUNT(*)
+            INTO v_solapado
+            FROM ReservaHabitacion rh
+            JOIN Reserva r_aux ON rh.id_reserva = r_aux.id_reserva
+            WHERE rh.id_habitacion = v_hab1
+              AND r_aux.estado <> 'CANCELADA'
+              AND v_checkin < rh.fecha_checkout
+              AND v_checkout > rh.fecha_checkin;
 
-        v_offset1 :=
-            TRUNC(
-                DBMS_RANDOM.VALUE(
-                    0,
-                    v_cantidad_hab(v_alojamiento)
-                )
-            );
+            v_intentos_hab := v_intentos_hab + 1;
+            EXIT WHEN v_solapado = 0 OR v_intentos_hab >= v_cantidad_hab(v_alojamiento);
+        END LOOP;
 
+        v_huespedes := TRUNC(DBMS_RANDOM.VALUE(1, v_capacidad_hab(v_hab1) + 1));
 
-        v_hab1 :=
-            v_inicio_hab(v_alojamiento) +
-            v_offset1;
-
-
-        v_huespedes :=
-            TRUNC(
-                DBMS_RANDOM.VALUE(
-                    1,
-                    v_capacidad_hab(v_hab1) + 1
-                )
-            );
-
-
-        INSERT INTO Reserva
-        VALUES (
+        INSERT INTO Reserva VALUES (
             i,
             v_cliente,
-            v_checkin -
-            1 -
-            TRUNC(DBMS_RANDOM.VALUE(0,60)),
+            v_fecha_reserva,
             v_checkin,
             v_checkout,
             v_estado
         );
 
-
-        INSERT INTO ReservaHabitacion
-        VALUES (
+        INSERT INTO ReservaHabitacion VALUES (
             ((i - 1) * 2) + 1,
             i,
             v_hab1,
@@ -967,50 +931,31 @@ BEGIN
             v_huespedes
         );
 
+        v_res_base(i) := v_base_hab(v_hab1) * v_noche;
 
-        v_res_base(i) :=
-            v_base_hab(v_hab1) * v_noche;
-
-
-        /* ========================================================
-           Algunas reservas incluyen una segunda habitación.
-           
-           Primeras 5.000 reservas -> 2 habitaciones.
-           Restantes -> 1 habitación.
-           ======================================================== */
-
+        /* Segunda habitación para las primeras 5.000 reservas si hay disponible */
         IF i <= 5000 THEN
+            v_intentos_hab := 0;
+            LOOP
+                v_offset2 := MOD(v_offset1 + 1 + v_intentos_hab, v_cantidad_hab(v_alojamiento));
+                v_hab2 := v_inicio_hab(v_alojamiento) + v_offset2;
 
-            v_offset2 :=
-                MOD(
-                    v_offset1 +
-                    1 +
-                    TRUNC(
-                        DBMS_RANDOM.VALUE(
-                            0,
-                            v_cantidad_hab(v_alojamiento) - 1
-                        )
-                    ),
-                    v_cantidad_hab(v_alojamiento)
-                );
+                SELECT COUNT(*)
+                INTO v_solapado
+                FROM ReservaHabitacion rh
+                JOIN Reserva r_aux ON rh.id_reserva = r_aux.id_reserva
+                WHERE rh.id_habitacion = v_hab2
+                  AND r_aux.estado <> 'CANCELADA'
+                  AND (v_checkin + 1) < rh.fecha_checkout
+                  AND v_checkout > rh.fecha_checkin;
 
+                v_intentos_hab := v_intentos_hab + 1;
+                EXIT WHEN (v_solapado = 0 AND v_hab2 <> v_hab1) OR v_intentos_hab >= v_cantidad_hab(v_alojamiento);
+            END LOOP;
 
-            v_hab2 :=
-                v_inicio_hab(v_alojamiento) +
-                v_offset2;
+            v_huespedes := TRUNC(DBMS_RANDOM.VALUE(1, v_capacidad_hab(v_hab2) + 1));
 
-
-            v_huespedes :=
-                TRUNC(
-                    DBMS_RANDOM.VALUE(
-                        1,
-                        v_capacidad_hab(v_hab2) + 1
-                    )
-                );
-
-
-            INSERT INTO ReservaHabitacion
-            VALUES (
+            INSERT INTO ReservaHabitacion VALUES (
                 ((i - 1) * 2) + 2,
                 i,
                 v_hab2,
@@ -1019,14 +964,7 @@ BEGIN
                 v_huespedes
             );
 
-
-            v_res_base(i) :=
-                v_res_base(i) +
-                (
-                    v_base_hab(v_hab2) *
-                    (v_noche - 1)
-                );
-
+            v_res_base(i) := v_res_base(i) + (v_base_hab(v_hab2) * (v_noche - 1));
         END IF;
 
     END LOOP;
@@ -1042,18 +980,13 @@ BEGIN
        25.000 + 6.250 = 31.250 pagos.
        ============================================================ */
 
+
     FOR i IN 1..25000 LOOP
 
-        v_monto :=
-            ROUND(
-                v_res_base(i) *
-                (0.65 + DBMS_RANDOM.VALUE(0,0.30)),
-                -2
-            );
-
+        v_monto := ROUND(v_res_base(i) * (0.65 + DBMS_RANDOM.VALUE(0, 0.30)), -2);
 
         v_metodo :=
-            CASE MOD(i,5)
+            CASE MOD(i, 5)
                 WHEN 0 THEN 'TARJETA_CREDITO'
                 WHEN 1 THEN 'TARJETA_DEBITO'
                 WHEN 2 THEN 'PSE'
@@ -1061,79 +994,68 @@ BEGIN
                 ELSE 'EFECTIVO'
             END;
 
-
         /* Estado del primer pago */
-
         IF v_res_estado(i) = 'PENDIENTE' THEN
-
             v_estado_pago := 'PENDIENTE';
-
         ELSIF v_res_estado(i) = 'CANCELADA' THEN
-
             v_estado_pago := 'EXITOSO';
-
         ELSIF v_res_estado(i) = 'CONFIRMADA' THEN
-
-            IF MOD(i,10) = 0 THEN
+            IF MOD(i, 10) = 0 THEN
                 v_estado_pago := 'PENDIENTE';
             ELSE
                 v_estado_pago := 'EXITOSO';
             END IF;
-
         ELSE
-
             v_estado_pago := 'EXITOSO';
-
         END IF;
 
+        /* Fecha del primer pago: El mismo día de la reserva (o pocas horas después) */
+        SELECT r.fecha_reserva + NUMTODSINTERVAL(DBMS_RANDOM.VALUE(1, 12), 'HOUR')
+        INTO v_fecha_pago1
+        FROM Reserva r
+        WHERE r.id_reserva = i;
 
-        INSERT INTO Pago
-        VALUES (
+        INSERT INTO Pago VALUES (
             i,
             i,
-            SYSDATE,
+            v_fecha_pago1,
             v_monto,
             v_metodo,
             v_estado_pago
         );
 
-
         /* ========================================================
            SEGUNDO PAGO: anticipo + saldo
            ======================================================== */
+        IF MOD(i, 4) = 0 THEN
 
-        IF MOD(i,4) = 0 THEN
+            /* Fecha del segundo pago: cerca del checkin o reembolso tras la reserva */
+            SELECT CASE 
+                       WHEN v_res_estado(i) = 'CANCELADA' THEN r.fecha_reserva + TRUNC(DBMS_RANDOM.VALUE(1, 5))
+                       ELSE r.fecha_checkin - TRUNC(DBMS_RANDOM.VALUE(0, 2))
+                   END
+            INTO v_fecha_pago2
+            FROM Reserva r
+            WHERE r.id_reserva = i;
 
             IF v_res_estado(i) = 'CANCELADA' THEN
-
-                /* Reembolso */
-
-                INSERT INTO Pago
-                VALUES (
+                INSERT INTO Pago VALUES (
                     25000 + TRUNC(i / 4),
                     i,
-                    SYSDATE,
+                    v_fecha_pago2,
                     v_monto,
                     'TRANSFERENCIA',
                     'REEMBOLSADO'
                 );
-
             ELSE
-
-                INSERT INTO Pago
-                VALUES (
+                INSERT INTO Pago VALUES (
                     25000 + TRUNC(i / 4),
                     i,
-                    SYSDATE,
-                    ROUND(
-                        v_res_base(i) *
-                        (0.20 + DBMS_RANDOM.VALUE(0,0.25)),
-                        -2
-                    ),
+                    v_fecha_pago2,
+                    ROUND(v_res_base(i) * (0.20 + DBMS_RANDOM.VALUE(0, 0.25)), -2),
                     v_metodo,
                     'EXITOSO'
                 );
-
             END IF;
 
         END IF;
@@ -1549,11 +1471,11 @@ END LOOP;
     );
 
     DBMS_OUTPUT.PUT_LINE(
-        'Temporadas: 6'
+        'Temporadas: 9'
     );
 
     DBMS_OUTPUT.PUT_LINE(
-        'Tarifas: 2.400'
+        'Tarifas: 3.600'
     );
 
     DBMS_OUTPUT.PUT_LINE(
