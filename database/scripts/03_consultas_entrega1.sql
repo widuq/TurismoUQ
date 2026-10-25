@@ -1,20 +1,23 @@
--- ============================================================
+--------------------------------------------------------------------------------
 -- PROYECTO INTEGRADOR: TURISMOUQ - PLATAFORMA DE RESERVAS
 -- ASIGNATURA: BASES DE DATOS II
 -- SCRIPT 03: CONSULTAS DE ANÁLISIS - ENTREGA 1 (CORREGIDO)
--- ============================================================
+--------------------------------------------------------------------------------
 
 -- ------------------------------------------------------------
 -- 1. OCUPACIÓN POR MUNICIPIO Y MES CON PIVOT
 -- Objetivo: Determinar el total de noches reservadas por municipio
 -- distribuidas en columnas de enero a diciembre para reservas COMPLETADAS.
 -- ------------------------------------------------------------
+
 SELECT *
 FROM (
     SELECT 
         m.nombre AS municipio,
         EXTRACT(MONTH FROM rh.fecha_checkin) AS mes,
         (rh.fecha_checkout - rh.fecha_checkin) AS noches_reservadas
+    
+    --Conectando las tablas con JOINS
     FROM Municipio m
     JOIN Alojamiento a ON m.id_municipio = a.id_municipio
     JOIN Habitacion h ON a.id_alojamiento = h.id_alojamiento
@@ -22,8 +25,11 @@ FROM (
     JOIN Reserva r ON rh.id_reserva = r.id_reserva
     WHERE r.estado = 'COMPLETADA'
 )
+
+-- El PIVOT toma los meses que normalmente salen como filas hacia abajo y los convierte 
+-- en columnas horizontales, para mostrar el total de noches reservadas en una tabla.
 PIVOT (
-    NVL(SUM(noches_reservadas), 0)
+    SUM(noches_reservadas)
     FOR mes IN (
         1  AS Enero, 
         2  AS Febrero, 
@@ -50,6 +56,8 @@ ORDER BY municipio;
 --     evitando el producto cartesiano con TARIFA que multiplicaba los datos x 7.8.
 --   - Se pre-agregan los pagos por reserva (estado 'EXITOSO') para no duplicar montos con ReservaHabitacion.
 -- ------------------------------------------------------------
+
+
 WITH PagosPorReserva AS (
     SELECT 
         id_reserva,
@@ -326,3 +334,5 @@ LEFT JOIN PagosPorReserva pr ON r.id_reserva = pr.id_reserva
 WHERE r.estado = 'CANCELADA'
 GROUP BY m.nombre, a.nombre
 ORDER BY total_reservas_canceladas DESC, ingresos_afectados_cancelacion DESC;
+
+
