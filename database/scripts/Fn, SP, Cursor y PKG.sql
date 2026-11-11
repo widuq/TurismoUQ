@@ -3,27 +3,21 @@
 -- Script: Funciones,Procedimientos, Cursores y Paquete
 -- Entrega 2 del Proyecto
 
--- Ejecutar lo siguiente conectado como un usuario con permisos SYSTEM 
-GRANT CREATE PROCEDURE TO PROYECTO;
-GRANT CREATE TRIGGER TO PROYECTO;
-GRANT CREATE TABLESPACE TO PROYECTO;
-GRANT CREATE MATERIALIZED VIEW TO PROYECTO;
-GRANT CREATE VIEW TO PROYECTO;
-
--- Permite al usuario consultar tablas en transacciones y manejar vistas 
--- materializadas
-GRANT QUERY REWRITE TO PROYECTO;
---------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
 SET SERVEROUTPUT ON SIZE UNLIMITED;
 
 -- Estructuras de soporte para auditoría y liquidación
--- Tabla para registrar la auditoría de cambios sobre la tabla TARIFA
+
+-- 1. Tabla para registrar la auditoría de cambios sobre la tabla TARIFA
 BEGIN
     EXECUTE IMMEDIATE 'DROP TABLE AuditoriaTarifa CASCADE CONSTRAINTS PURGE';
 EXCEPTION
-    WHEN OTHERS THEN NULL;
+    WHEN OTHERS THEN
+        IF 
+            -- El código -942 significa que la tabla no existe
+            SQLCODE <> -942 THEN RAISE;
+        END IF;
 END;
 /
 
@@ -61,21 +55,14 @@ COMMENT ON COLUMN AuditoriaTarifa.usuario IS
 COMMENT ON COLUMN AuditoriaTarifa.fecha_cambio IS 
 'Fecha y hora exacta en la que se realizó la operación.';
 
--- Secuencia para la tabla de auditoría
-BEGIN
-    EXECUTE IMMEDIATE 'DROP SEQUENCE seq_auditoria_tarifa';
-EXCEPTION
-    WHEN OTHERS THEN NULL;
-END;
-/
-CREATE SEQUENCE seq_auditoria_tarifa START WITH 1 INCREMENT BY 1 NOCACHE;
-
-
--- Tabla para persistir los resultados del proceso masivo de liquidación mensual
+-- 2. Tabla para persistir los resultados del proceso masivo de liquidación mensual
 BEGIN
     EXECUTE IMMEDIATE 'DROP TABLE LiquidacionMensual CASCADE CONSTRAINTS PURGE';
 EXCEPTION
-    WHEN OTHERS THEN NULL;
+    WHEN OTHERS THEN
+        IF
+            SQLCODE <> -942 THEN RAISE;
+        END IF;
 END;
 /
 
@@ -103,16 +90,67 @@ CREATE TABLE LiquidacionMensual (
 COMMENT ON TABLE LiquidacionMensual IS
 'Historial de liquidaciones mensuales masivas generadas por alojamiento.';
 
+-- 3. Secuencias: seq_auditoria_tarifa, seq_liquidacion_mensual seq_reserva y 
+-- seq_reserva_habitacion
+
+-- Secuencia para la tabla de auditoría
+BEGIN
+    EXECUTE IMMEDIATE 'DROP SEQUENCE seq_auditoria_tarifa';
+EXCEPTION
+    WHEN OTHERS THEN
+        IF
+            -- -2289: La secuencia no existe
+            SQLCODE <> -2289 THEN RAISE;
+        END IF;
+END;
+/
+CREATE SEQUENCE seq_auditoria_tarifa START WITH 1 INCREMENT BY 1 NOCACHE;
+
+-- Secuencia para la liquidación mensual
 BEGIN
     EXECUTE IMMEDIATE 'DROP SEQUENCE seq_liquidacion_mensual';
 EXCEPTION
-    WHEN OTHERS THEN NULL;
+    WHEN OTHERS THEN 
+        IF
+            SQLCODE <> -2289 THEN RAISE;
+        END IF;
 END;
 /
 CREATE SEQUENCE seq_liquidacion_mensual START WITH 1 INCREMENT BY 1 NOCACHE;
 
+DECLARE
+    v_inicio NUMBER;
+BEGIN
+    -- seq_reserva
+    BEGIN
+        EXECUTE IMMEDIATE 'DROP SEQUENCE seq_reserva';
+    EXCEPTION
+        WHEN OTHERS THEN
+            IF
+                SQLCODE <> -2289 THEN RAISE;
+            END IF;
+    END;
+    SELECT NVL(MAX(id_reserva), 0) + 1 INTO v_inicio FROM Reserva;
+    EXECUTE IMMEDIATE 'CREATE SEQUENCE seq_reserva START WITH ' || v_inicio ||
+        ' INCREMENT BY 1 NOCACHE';
+    
+    -- seq_reserva_habitacion
+    BEGIN
+        EXECUTE IMMEDIATE 'DROP SEQUENCE seq_reserva_habitacion';
+    EXCEPTION
+        WHEN OTHERS THEN 
+            IF
+                SQLCODE <> -2289 THEN RAISE;
+            END IF;
+    END;
+    SELECT NVL(MAX(id_reserva_habitacion), 0) + 1 INTO v_inicio FROM ReservaHabitacion;
+    EXECUTE IMMEDIATE 'CREATE SEQUENCE seq_reserva_habitacion START WITH ' 
+        || v_inicio || ' INCREMENT BY 1 NOCACHE';
+END;
+/
 
--- Crear el paquete PL/SQL: PKG_TURISMOUQ
+
+-- 4. Crear el paquete PL/SQL: PKG_TURISMOUQ
 CREATE OR REPLACE PACKAGE PKG_TURISMOUQ AS
 
     -- Códigos de excepción estandarizados para la plataforma
@@ -130,51 +168,82 @@ CREATE OR REPLACE PACKAGE PKG_TURISMOUQ AS
         cp_mes            NUMBER,
         cp_id_alojamiento NUMBER DEFAULT NULL
     ) IS
-        WITH PagosPorReserva AS (
-            SELECT 
-                id_reserva,
-                SUM(monto) AS total_pagado
-            FROM Pago
-            WHERE estado = 'EXITOSO'
-            GROUP BY id_reserva
+        WITH Periodo AS (
+            SELECT TO_DATE(cp_anio || '-' || LPAD(cp_mes, 2, '0') || '-01', 
+            'YYYY-MM-DD') AS mes_ini,
+                ADD_MONTHS(TO_DATE(cp_anio || '-' || LPAD(cp_mes, 2, '0') || 
+                '-01', 'YYYY-MM-DD'), 1) AS mes_fin
+            FROM dual
         ),
-        ServiciosPorReserva AS (
-            SELECT 
-                id_reserva,
-                SUM(cantidad * precio_unitario) AS total_servicios
-            FROM ReservaServicio
-            GROUP BY id_reserva
-        ),
-        ReservaAlojamiento AS (
-            SELECT 
-                rh.id_reserva,
-                h.id_alojamiento,
-                SUM(rh.fecha_checkout - rh.fecha_checkin) AS noches_reserva
+        TramoMes AS (
+            -- Tramo de cada línea de reserva que cae dentro del mes
+            SELECT rh.id_reserva_habitacion,
+                   rh.id_reserva,
+                   rh.id_habitacion,
+                   h.id_alojamiento,
+                   GREATEST(TRUNC(rh.fecha_checkin), p.mes_ini) AS seg_ini,
+                   LEAST(TRUNC(rh.fecha_checkout), p.mes_fin) AS seg_fin
             FROM ReservaHabitacion rh
             JOIN Habitacion h ON rh.id_habitacion = h.id_habitacion
-            GROUP BY rh.id_reserva, h.id_alojamiento
+            JOIN Reserva r ON rh.id_reserva = r.id_reserva
+            CROSS JOIN Periodo p
+            WHERE r.estado = 'COMPLETADA'
+                AND rh.fecha_checkin  < p.mes_fin
+                AND rh.fecha_checkout > p.mes_ini
+                AND (cp_id_alojamiento IS NULL OR h.id_alojamiento = cp_id_alojamiento)
+        ),
+        ValorTramo AS (
+            -- Noches y valor de cada tramo, noche por noche según temporada
+            SELECT tm.id_reserva,
+                   tm.id_alojamiento,
+                   tm.id_reserva_habitacion,
+                   tm.seg_fin - tm.seg_ini AS noches,
+                   NVL(SUM((LEAST(tm.seg_fin, t.fecha_fin + 1) - GREATEST(
+                        tm.seg_ini, t.fecha_inicio)) * tar.precio_noche
+                   ), 0) AS valor_estadia 
+            FROM TramoMes tm
+            LEFT JOIN Temporada t ON t.fecha_inicio < tm.seg_fin
+                AND t.fecha_fin + 1 > tm.seg_ini
+            LEFT JOIN Tarifa tar ON tar.id_habitacion = tm.id_habitacion
+                AND tar.id_temporada  = t.id_temporada
+            GROUP BY tm.id_reserva, tm.id_alojamiento, tm.id_reserva_habitacion,
+                     tm.seg_ini, tm.seg_fin
+        ),
+        ResumenReserva AS (
+            SELECT id_reserva,
+                   id_alojamiento,
+                   SUM(noches) AS noches,
+                   SUM(valor_estadia) as valor_estadia
+            FROM ValorTramo
+            GROUP BY id_reserva, id_alojamiento
+        ),
+        ServiciosReserva AS (
+            SELECT rs.id_reserva,
+                   s.id_alojamiento,
+                   SUM(rs.cantidad * rs.precio_unitario) AS total_servicios
+            FROM ReservaServicio rs
+            JOIN Servicio s ON rs.id_servicio = s.id_servicio
+            GROUP BY rs.id_reserva, s.id_alojamiento
         )
         SELECT 
             a.id_alojamiento,
             a.nombre AS nombre_alojamiento,
             m.nombre AS nombre_municipio,
-            COUNT(DISTINCT r.id_reserva) AS total_reservas,
-            NVL(SUM(ra.noches_reserva), 0) AS total_noches,
-            NVL(SUM(pr.total_pagado), 0) AS total_ingresos_estadia,
+            COUNT(*) AS total_reservas,
+            SUM(rr.noches) AS total_noches,
+            SUM(rr.valor_estadia) AS total_ingresos_estadia,
             NVL(SUM(sr.total_servicios), 0) AS total_ingresos_servicios,
-            (NVL(SUM(pr.total_pagado), 0) + NVL(SUM(sr.total_servicios), 0)) AS total_bruto,
-            ROUND((NVL(SUM(pr.total_pagado), 0) + NVL(SUM(sr.total_servicios), 0)) * 0.10, 2) AS comision_plataforma,
-            ROUND((NVL(SUM(pr.total_pagado), 0) + NVL(SUM(sr.total_servicios), 0)) * 0.90, 2) AS monto_neto_alojamiento
-        FROM Alojamiento a
+            SUM(rr.valor_estadia) + NVL(SUM(sr.total_servicios), 0) AS total_bruto,
+            ROUND((SUM(rr.valor_estadia) + NVL(SUM(sr.total_servicios), 0)) * 0.10, 2) AS comision_plataforma,
+            ROUND((SUM(rr.valor_estadia) + NVL(SUM(sr.total_servicios), 0)) * 0.90, 2) AS monto_neto_alojamiento
+        FROM ResumenReserva rr
+        JOIN Reserva r ON rr.id_reserva = r.id_reserva
+        JOIN Alojamiento a ON rr.id_alojamiento = a.id_alojamiento
         JOIN Municipio m ON a.id_municipio = m.id_municipio
-        JOIN ReservaAlojamiento ra ON a.id_alojamiento = ra.id_alojamiento
-        JOIN Reserva r ON ra.id_reserva = r.id_reserva
-        LEFT JOIN PagosPorReserva pr ON r.id_reserva = pr.id_reserva
-        LEFT JOIN ServiciosPorReserva sr ON r.id_reserva = sr.id_reserva
-        WHERE r.estado = 'COMPLETADA'
-          AND EXTRACT(YEAR FROM r.fecha_checkout) = cp_anio
-          AND EXTRACT(MONTH FROM r.fecha_checkout) = cp_mes
-          AND (cp_id_alojamiento IS NULL OR a.id_alojamiento = cp_id_alojamiento)
+        CROSS JOIN Periodo p
+        LEFT JOIN ServiciosReserva sr ON sr.id_reserva = rr.id_reserva
+            AND sr.id_alojamiento = rr.id_alojamiento
+            AND TRUNC(r.fecha_checkin, 'MM') = p.mes_ini
         GROUP BY a.id_alojamiento, a.nombre, m.nombre
         ORDER BY total_bruto DESC;
 
@@ -205,10 +274,11 @@ CREATE OR REPLACE PACKAGE PKG_TURISMOUQ AS
 END PKG_TURISMOUQ;
 /
 
--- Cuerpo del paquete: PKG_TURISMOUQ
+-- 5. Cuerpo del paquete: PKG_TURISMOUQ
 CREATE OR REPLACE PACKAGE BODY PKG_TURISMOUQ AS
 
-    -- fn_valor_estadia
+    -- fn_valor_estadia: recorre la estadía noche por noche y suma la tarifa de
+    -- la temporada vigente de cada día
     FUNCTION fn_valor_estadia(
         p_id_habitacion IN NUMBER,
         p_fecha_in      IN DATE,
@@ -278,7 +348,7 @@ CREATE OR REPLACE PACKAGE BODY PKG_TURISMOUQ AS
                 INTO v_precio_noche
                 FROM Tarifa tar
                 WHERE tar.id_habitacion = p_id_habitacion
-                  AND tar.id_temporada = v_id_temporada;
+                    AND tar.id_temporada = v_id_temporada;
             EXCEPTION
                 WHEN NO_DATA_FOUND THEN
                     RAISE_APPLICATION_ERROR(
@@ -295,7 +365,7 @@ CREATE OR REPLACE PACKAGE BODY PKG_TURISMOUQ AS
         RETURN v_valor_acumulado;
     END fn_valor_estadia;
 
-    -- sp_crear_reserva
+    -- sp_crear_reserva: valida fechas, cliente, capacidad y disponibilidad
     PROCEDURE sp_crear_reserva(
         p_id_cliente         IN  NUMBER,
         p_id_habitacion      IN  NUMBER,
@@ -386,14 +456,10 @@ CREATE OR REPLACE PACKAGE BODY PKG_TURISMOUQ AS
             );
         END IF;
 
-        SELECT NVL(MAX(id_reserva), 0) + 1
-        INTO v_nuevo_id_reserva
-        FROM Reserva;
-
-        SELECT NVL(MAX(id_reserva_habitacion), 0) + 1
-        INTO v_nuevo_id_reshab
-        FROM ReservaHabitacion;
-
+        -- IDs por secuencia
+        v_nuevo_id_reserva := seq_reserva.NEXTVAL;
+        v_nuevo_id_reshab := seq_reserva_habitacion.NEXTVAL;
+        
         INSERT INTO Reserva (
             id_reserva,
             id_cliente,
@@ -429,7 +495,8 @@ CREATE OR REPLACE PACKAGE BODY PKG_TURISMOUQ AS
         p_id_reserva := v_nuevo_id_reserva;
     END sp_crear_reserva;
 
-    -- sp_liquidacion_mensual
+    -- sp_liquidacion_mensual: recorre el cursor parametrizado y guarda el
+    -- resultado en LiquidacionMensual, inserta o actualiza el periodo
     PROCEDURE sp_liquidacion_mensual(
         p_anio            IN NUMBER,
         p_mes             IN NUMBER,
@@ -472,55 +539,38 @@ CREATE OR REPLACE PACKAGE BODY PKG_TURISMOUQ AS
             v_gran_total_bruto    := v_gran_total_bruto + v_reg.total_bruto;
             v_gran_total_comision := v_gran_total_comision + v_reg.comision_plataforma;
             v_gran_total_neto     := v_gran_total_neto + v_reg.monto_neto_alojamiento;
-
-            BEGIN
-                SELECT seq_liquidacion_mensual.NEXTVAL INTO v_id_liq FROM dual;
-                
+            
+            -- Si el período ya estaba liquidado se actualiza, si no, se inserta
+            UPDATE LiquidacionMensual
+            SET total_reservas = v_reg.total_reservas,
+                total_noches = v_reg.total_noches,
+                total_ingresos_estadia = v_reg.total_ingresos_estadia,
+                total_ingresos_servicios = v_reg.total_ingresos_servicios,
+                total_bruto = v_reg.total_bruto,
+                comision_plataforma = v_reg.comision_plataforma,
+                monto_neto_alojamiento = v_reg.monto_neto_alojamiento,
+                fecha_liquidacion = SYSDATE,
+                estado = 'RELIQUIDADO'
+            WHERE id_alojamiento = v_reg.id_alojamiento
+                AND anio = p_anio
+                AND mes = p_mes;
+            
+            IF SQL%ROWCOUNT = 0 THEN
+                v_id_liq := seq_liquidacion_mensual.NEXTVAL;
                 INSERT INTO LiquidacionMensual (
-                    id_liquidacion,
-                    id_alojamiento,
-                    anio,
-                    mes,
-                    total_reservas,
-                    total_noches,
-                    total_ingresos_estadia,
-                    total_ingresos_servicios,
-                    total_bruto,
-                    comision_plataforma,
-                    monto_neto_alojamiento,
-                    fecha_liquidacion,
-                    estado
+                    id_liquidacion, id_alojamiento, anio, mes,
+                    total_reservas, total_noches,
+                    total_ingresos_estadia, total_ingresos_servicios,
+                    total_bruto, comision_plataforma, monto_neto_alojamiento,
+                    fecha_liquidacion, estado
                 ) VALUES (
-                    v_id_liq,
-                    v_reg.id_alojamiento,
-                    p_anio,
-                    p_mes,
-                    v_reg.total_reservas,
-                    v_reg.total_noches,
-                    v_reg.total_ingresos_estadia,
-                    v_reg.total_ingresos_servicios,
-                    v_reg.total_bruto,
-                    v_reg.comision_plataforma,
-                    v_reg.monto_neto_alojamiento,
-                    SYSDATE,
-                    'LIQUIDADO'
+                    v_id_liq, v_reg.id_alojamiento, p_anio, p_mes,
+                    v_reg.total_reservas, v_reg.total_noches,
+                    v_reg.total_ingresos_estadia, v_reg.total_ingresos_servicios,
+                    v_reg.total_bruto, v_reg.comision_plataforma, v_reg.monto_neto_alojamiento,
+                    SYSDATE, 'LIQUIDADO'
                 );
-            EXCEPTION
-                WHEN DUP_VAL_ON_INDEX THEN
-                    UPDATE LiquidacionMensual
-                    SET total_reservas           = v_reg.total_reservas,
-                        total_noches             = v_reg.total_noches,
-                        total_ingresos_estadia   = v_reg.total_ingresos_estadia,
-                        total_ingresos_servicios = v_reg.total_ingresos_servicios,
-                        total_bruto              = v_reg.total_bruto,
-                        comision_plataforma      = v_reg.comision_plataforma,
-                        monto_neto_alojamiento   = v_reg.monto_neto_alojamiento,
-                        fecha_liquidacion        = SYSDATE,
-                        estado                   = 'RELIQUIDADO'
-                    WHERE id_alojamiento = v_reg.id_alojamiento
-                      AND anio = p_anio
-                      AND mes = p_mes;
-            END;
+            END IF;
 
             DBMS_OUTPUT.PUT_LINE(
                 RPAD(v_reg.id_alojamiento, 5) || 
@@ -545,6 +595,8 @@ CREATE OR REPLACE PACKAGE BODY PKG_TURISMOUQ AS
 
 END PKG_TURISMOUQ;
 /
+
+-- 6. Funciones y procedimientos que llaman al paquete 
 
 -- Creación de la función fn_valor_estadia. Encargado de calcular correctamente
 -- el valor cruzando temporadas distinitas dentro de la misma estadía
