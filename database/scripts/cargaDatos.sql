@@ -840,8 +840,20 @@ BEGIN
        ============================================================ */
 
 
-    FOR i IN 1..25000 LOOP
+    
+/* ============================================================
+   8. RESERVAS
+   25.000 reservas.
+   2024 -> 5.000
+   2025 -> 10.000
+   2026 -> 10.000
 
+   Las primeras 5.000 reservas tienen dos habitaciones.
+   Las restantes tienen una habitación.
+   ============================================================ */
+
+    FOR i IN 1..25000 LOOP
+    
         /* Año */
         IF i <= 5000 THEN
             v_anio := 2024;
@@ -850,34 +862,7 @@ BEGIN
         ELSE
             v_anio := 2026;
         END IF;
-
-        /* Mes con estacionalidad */
-        v_mes := obtener_mes;
-
-        v_inicio_mes :=
-            ADD_MONTHS(
-                DATE '2024-01-01',
-                ((v_anio - 2024) * 12) + (v_mes - 1)
-            );
-
-        v_dias_mes := LAST_DAY(v_inicio_mes) - v_inicio_mes + 1;
-
-        v_checkin := TRUNC(v_inicio_mes + TRUNC(DBMS_RANDOM.VALUE(0, v_dias_mes)));
-        v_noche := 2 + TRUNC(DBMS_RANDOM.VALUE(0, 6));
-        v_checkout := v_checkin + v_noche;
-
-        /* Fecha de reserva coherente: entre 1 y 45 días antes del checkin */
-        v_fecha_reserva := v_checkin - TRUNC(DBMS_RANDOM.VALUE(1, 46));
-
-        v_cliente := TRUNC(DBMS_RANDOM.VALUE(1, 3001));
-
-        /* Distribución de demanda en alojamientos */
-        IF i <= 20000 THEN
-            v_alojamiento := TRUNC(DBMS_RANDOM.VALUE(1, 16));
-        ELSE
-            v_alojamiento := TRUNC(DBMS_RANDOM.VALUE(16, 61));
-        END IF;
-
+    
         /* Estado */
         IF MOD(i, 20) <= 13 THEN
             v_estado := 'COMPLETADA';
@@ -888,31 +873,149 @@ BEGIN
         ELSE
             v_estado := 'PENDIENTE';
         END IF;
-
-        v_res_alojamiento(i) := v_alojamiento;
-        v_res_estado(i) := v_estado;
-
-        /* Búsqueda de habitación libre (sin solapamiento de fechas) */
+    
+        v_cliente := TRUNC(DBMS_RANDOM.VALUE(1, 3001));
+    
+        /* Buscar fechas y habitaciones disponibles */
         v_intentos_hab := 0;
+    
         LOOP
-            v_offset1 := TRUNC(DBMS_RANDOM.VALUE(0, v_cantidad_hab(v_alojamiento)));
-            v_hab1 := v_inicio_hab(v_alojamiento) + v_offset1;
-
-            SELECT COUNT(*)
-            INTO v_solapado
-            FROM ReservaHabitacion rh
-            JOIN Reserva r_aux ON rh.id_reserva = r_aux.id_reserva
-            WHERE rh.id_habitacion = v_hab1
-              AND r_aux.estado <> 'CANCELADA'
-              AND v_checkin < rh.fecha_checkout
-              AND v_checkout > rh.fecha_checkin;
-
+    
+            /* Elegir nuevamente el alojamiento en cada intento */
+            IF i <= 20000 THEN
+                v_alojamiento := TRUNC(DBMS_RANDOM.VALUE(1, 16));
+            ELSE
+                v_alojamiento := TRUNC(DBMS_RANDOM.VALUE(16, 61));
+            END IF;
+    
+            /* Generar fechas */
+            v_mes := obtener_mes;
+    
+            v_inicio_mes :=
+                ADD_MONTHS(
+                    DATE '2024-01-01',
+                    ((v_anio - 2024) * 12) + (v_mes - 1)
+                );
+    
+            v_dias_mes :=
+                LAST_DAY(v_inicio_mes) - v_inicio_mes + 1;
+    
+            v_checkin :=
+                TRUNC(
+                    v_inicio_mes +
+                    TRUNC(DBMS_RANDOM.VALUE(0, v_dias_mes))
+                );
+    
+            v_noche := 2 + TRUNC(DBMS_RANDOM.VALUE(0, 6));
+            v_checkout := v_checkin + v_noche;
+    
+            v_fecha_reserva :=
+                v_checkin - TRUNC(DBMS_RANDOM.VALUE(1, 46));
+    
+            /* Buscar primera habitación */
+            v_offset1 :=
+                TRUNC(
+                    DBMS_RANDOM.VALUE(
+                        0,
+                        v_cantidad_hab(v_alojamiento)
+                    )
+                );
+    
+            v_hab1 := NULL;
+            v_solapado := 1;
+    
+            FOR k IN 0 .. v_cantidad_hab(v_alojamiento) - 1 LOOP
+    
+                v_hab1 :=
+                    v_inicio_hab(v_alojamiento) +
+                    MOD(
+                        v_offset1 + k,
+                        v_cantidad_hab(v_alojamiento)
+                    );
+    
+                SELECT COUNT(*)
+                INTO v_solapado
+                FROM ReservaHabitacion rh
+                JOIN Reserva r_aux
+                    ON rh.id_reserva = r_aux.id_reserva
+                WHERE rh.id_habitacion = v_hab1
+                  AND r_aux.estado IN (
+                      'PENDIENTE',
+                      'CONFIRMADA',
+                      'COMPLETADA'
+                  )
+                  AND v_checkin < rh.fecha_checkout
+                  AND v_checkout > rh.fecha_checkin;
+    
+                EXIT WHEN v_solapado = 0;
+    
+            END LOOP;
+    
+            /* Buscar segunda habitación */
+            IF v_solapado = 0 AND i <= 5000 THEN
+    
+                v_hab2 := NULL;
+                v_solapado := 1;
+    
+                v_offset2 := MOD(
+                    v_offset1 + 1,
+                    v_cantidad_hab(v_alojamiento)
+                );
+    
+                FOR k IN 0 .. v_cantidad_hab(v_alojamiento) - 1 LOOP
+    
+                    v_hab2 :=
+                        v_inicio_hab(v_alojamiento) +
+                        MOD(
+                            v_offset2 + k,
+                            v_cantidad_hab(v_alojamiento)
+                        );
+    
+                    IF v_hab2 <> v_hab1 THEN
+    
+                        SELECT COUNT(*)
+                        INTO v_solapado
+                        FROM ReservaHabitacion rh
+                        JOIN Reserva r_aux
+                            ON rh.id_reserva = r_aux.id_reserva
+                        WHERE rh.id_habitacion = v_hab2
+                          AND r_aux.estado IN (
+                              'PENDIENTE',
+                              'CONFIRMADA',
+                              'COMPLETADA'
+                          )
+                          AND (v_checkin + 1) < rh.fecha_checkout
+                          AND v_checkout > rh.fecha_checkin;
+    
+                        EXIT WHEN v_solapado = 0;
+    
+                    END IF;
+    
+                END LOOP;
+    
+                /* No se encontró una segunda habitación */
+                IF v_hab2 IS NULL OR v_hab2 = v_hab1 THEN
+                    v_solapado := 1;
+                END IF;
+    
+            END IF;
+    
             v_intentos_hab := v_intentos_hab + 1;
-            EXIT WHEN v_solapado = 0 OR v_intentos_hab >= v_cantidad_hab(v_alojamiento);
+    
+            /* Salir solamente si se encontraron todas las habitaciones */
+            EXIT WHEN v_solapado = 0;
+    
+            IF v_intentos_hab >= 1000 THEN
+                RAISE_APPLICATION_ERROR(
+                    -20022,
+                    'No se pudo encontrar disponibilidad después de 1000 intentos. Reserva: '
+                    || i || ', último alojamiento: ' || v_alojamiento
+                );
+            END IF;
+    
         END LOOP;
-
-        v_huespedes := TRUNC(DBMS_RANDOM.VALUE(1, v_capacidad_hab(v_hab1) + 1));
-
+    
+        /* Insertar reserva */
         INSERT INTO Reserva VALUES (
             i,
             v_cliente,
@@ -921,7 +1024,16 @@ BEGIN
             v_checkout,
             v_estado
         );
-
+    
+        /* Insertar primera habitación */
+        v_huespedes :=
+            TRUNC(
+                DBMS_RANDOM.VALUE(
+                    1,
+                    v_capacidad_hab(v_hab1) + 1
+                )
+            );
+    
         INSERT INTO ReservaHabitacion VALUES (
             ((i - 1) * 2) + 1,
             i,
@@ -930,31 +1042,24 @@ BEGIN
             v_checkout,
             v_huespedes
         );
-
-        v_res_base(i) := v_base_hab(v_hab1) * v_noche;
-
-        /* Segunda habitación para las primeras 5.000 reservas si hay disponible */
+    
+        v_res_alojamiento(i) := v_alojamiento;
+        v_res_estado(i) := v_estado;
+    
+        v_res_base(i) :=
+            v_base_hab(v_hab1) * v_noche;
+    
+        /* Insertar segunda habitación */
         IF i <= 5000 THEN
-            v_intentos_hab := 0;
-            LOOP
-                v_offset2 := MOD(v_offset1 + 1 + v_intentos_hab, v_cantidad_hab(v_alojamiento));
-                v_hab2 := v_inicio_hab(v_alojamiento) + v_offset2;
-
-                SELECT COUNT(*)
-                INTO v_solapado
-                FROM ReservaHabitacion rh
-                JOIN Reserva r_aux ON rh.id_reserva = r_aux.id_reserva
-                WHERE rh.id_habitacion = v_hab2
-                  AND r_aux.estado <> 'CANCELADA'
-                  AND (v_checkin + 1) < rh.fecha_checkout
-                  AND v_checkout > rh.fecha_checkin;
-
-                v_intentos_hab := v_intentos_hab + 1;
-                EXIT WHEN (v_solapado = 0 AND v_hab2 <> v_hab1) OR v_intentos_hab >= v_cantidad_hab(v_alojamiento);
-            END LOOP;
-
-            v_huespedes := TRUNC(DBMS_RANDOM.VALUE(1, v_capacidad_hab(v_hab2) + 1));
-
+    
+            v_huespedes :=
+                TRUNC(
+                    DBMS_RANDOM.VALUE(
+                        1,
+                        v_capacidad_hab(v_hab2) + 1
+                    )
+                );
+    
             INSERT INTO ReservaHabitacion VALUES (
                 ((i - 1) * 2) + 2,
                 i,
@@ -963,10 +1068,13 @@ BEGIN
                 v_checkout,
                 v_huespedes
             );
-
-            v_res_base(i) := v_res_base(i) + (v_base_hab(v_hab2) * (v_noche - 1));
+    
+            v_res_base(i) :=
+                v_res_base(i) +
+                (v_base_hab(v_hab2) * (v_noche - 1));
+    
         END IF;
-
+    
     END LOOP;
 
 
