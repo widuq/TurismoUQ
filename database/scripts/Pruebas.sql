@@ -3,6 +3,8 @@
 -- Script: 10 casos de prueba
 -- Entrega 2 del Proyecto
 
+--------------------------------------------------------------------------------
+
 SET SERVEROUTPUT ON SIZE UNLIMITED;
 
 -- Casos de prueba y demostración

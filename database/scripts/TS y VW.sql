@@ -3,6 +3,8 @@
 -- Script: Tablespace, histórico y vista materializada
 -- Entrega 2 del Proyecto
 
+--------------------------------------------------------------------------------
+
 SET SERVEROUTPUT ON SIZE UNLIMITED;
 
 -- Archivos de datos del tablespace
