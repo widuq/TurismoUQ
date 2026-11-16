@@ -1,6 +1,6 @@
--- PROYECTO INTEGRADOR: TURISMOUQ - PLATAFORMA DE RESERVAS
--- ASIGNATURA: BASES DE DATOS II
--- Script: Sesión B para probar la concurrencia
+-- Proyecto Integrador: TurismoUQ - Plataforma de Reservas
+-- Asignatura: Bases de Datos II
+-- Script 08b: Sesión B para probar la concurrencia
 -- Entrega 3 del Proyecto
 
 --------------------------------------------------------------------------------
@@ -20,8 +20,10 @@ BEGIN
 END;
 /
 
+
 -- Luego realizar COMMIT con la Sesión B
 COMMIT;
+
 
 -- Segundo escenario de concurrencia después de crear el procedimiento sp_crear_reserva_segura 
 -- encargado de bloquear la fila cuando se desea realizar una reserva, usando la sesión B
@@ -36,6 +38,7 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('Sesión B: reserva ' || v_id || ' creada.');
 END;
 /
+
 
 -- Después de que se ejecute el COMMIT en la sesión, el resultado esperado en la
 -- Sesión B es "ORA-20001: "Habitación no disponible", porque ahora sí ve la 

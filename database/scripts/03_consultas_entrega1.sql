@@ -1,15 +1,13 @@
---------------------------------------------------------------------------------
--- PROYECTO INTEGRADOR: TURISMOUQ - PLATAFORMA DE RESERVAS
--- ASIGNATURA: BASES DE DATOS II
--- SCRIPT 03: CONSULTAS DE ANÁLISIS - ENTREGA 1 (CORREGIDO)
+-- Proyecto Integrador: TurismoUQ - Plataforma de Reservas
+-- Asignatura: Bases de Datos II
+-- Script 03: Consultas de análisis
+-- Entrega 1 del Proyecto
+
 --------------------------------------------------------------------------------
 
--- ------------------------------------------------------------
--- 1. OCUPACIÓN POR MUNICIPIO Y MES CON PIVOT
--- Objetivo: Determinar el total de noches reservadas por municipio
+-- 1. Ocupación por Municipio y mes con PIVOT
+-- Determinar el total de noches reservadas por municipio
 -- distribuidas en columnas de enero a diciembre para reservas COMPLETADAS.
--- ------------------------------------------------------------
-
 SELECT *
 FROM (
     SELECT 
@@ -48,16 +46,12 @@ PIVOT (
 ORDER BY municipio;
 
 
--- ------------------------------------------------------------
--- 2. INGRESOS POR MUNICIPIO, TIPO DE ALOJAMIENTO Y TEMPORADA CON ROLLUP
--- Objetivo: Totalizar ingresos con subtotales jerárquicos usando GROUPING.
--- Corrección aplicada:
---   - Se asocia TEMPORADA mediante condición de fecha (r.fecha_checkin BETWEEN t.fecha_inicio AND t.fecha_fin),
---     evitando el producto cartesiano con TARIFA que multiplicaba los datos x 7.8.
---   - Se pre-agregan los pagos por reserva (estado 'EXITOSO') para no duplicar montos con ReservaHabitacion.
--- ------------------------------------------------------------
-
-
+-- 2. Ingresos por Municipio, Tipo de Alojamiento y Temporada con ROLLUP
+-- Totalizar ingresos con subtotales jerárquicos usando GROUPING.
+-- Corrección: Se asocia TEMPORADA mediante condición de fecha (r.fecha_checkin 
+-- BETWEEN t.fecha_inicio AND t.fecha_fin), evitando el producto cartesiano con 
+-- TARIFA que multiplicaba los datos x 7.8. Se pre-agregan los pagos por reserva 
+-- (estado 'EXITOSO') para no duplicar montos con ReservaHabitacion.
 WITH PagosPorReserva AS (
     SELECT 
         id_reserva,
@@ -109,14 +103,12 @@ ORDER BY
     GROUPING(t.nombre) ASC, t.nombre;
 
 
--- ------------------------------------------------------------
--- 3. LOS 3 ALOJAMIENTOS DE MAYOR INGRESO DENTRO DE CADA MUNICIPIO (RANK CON PARTITION BY)
--- Objetivo: Identificar el Top 3 de alojamientos más rentables por municipio.
--- Corrección aplicada:
---   - Se desacopla la agregación de Pago respecto a ReservaHabitacion para no multiplicar
---     los montos en reservas con múltiples habitaciones.
---   - Se consideran únicamente pagos con estado 'EXITOSO' para reservas 'COMPLETADA'.
--- ------------------------------------------------------------
+-- 3. Los 3 Alojamientos de mayor ingreso dentro de cada Municipio con RANK y 
+-- PARTITION BY
+-- Identificar el Top 3 de alojamientos más rentables por municipio.
+-- Corrección: Se desacopla la agregación de Pago respecto a ReservaHabitacion 
+-- para no multiplicar los montos en reservas con múltiples habitaciones.
+-- Se consideran únicamente pagos con estado 'EXITOSO' para reservas 'COMPLETADA'. 
 WITH PagosPorReserva AS (
     SELECT 
         id_reserva,
@@ -160,10 +152,8 @@ WHERE ranking <= 3
 ORDER BY municipio, ranking;
 
 
--- ------------------------------------------------------------
--- 4. VARIACIÓN DE INGRESOS MES CONTRA MES (LAG)
--- Objetivo: Medir el crecimiento o contracción intermensual de la facturación.
--- ------------------------------------------------------------
+-- 4. Variación de ingresos mes contra mes utilizando LAG
+-- Medir el crecimiento o contracción intermensual de la facturación.
 WITH PagosPorReserva AS (
     SELECT 
         id_reserva,
@@ -199,13 +189,11 @@ FROM IngresosMensuales
 ORDER BY anio, mes;
 
 
--- ------------------------------------------------------------
--- 5. CONSULTA PARAMETRIZADA CON VARIABLES DE ENLACE PARA RANGO DE FECHAS
--- Objetivo: Facturación y volumen de reservas por alojamiento en un rango dinámico.
--- Corrección aplicada:
---   - Se reemplaza la variable de sustitución léxica (&) por variables de enlace nativas de Oracle (:b_fecha_inicio, :b_fecha_fin).
---   - Se elimina la duplicación de pagos al desvincular ReservaHabitacion del cálculo de Pago.
--- ------------------------------------------------------------
+-- 5. Consulta parametrizada con variables de enlace para rango de fechas
+-- Facturación y volumen de reservas por alojamiento en un rango dinámico.
+-- Corrección: Se reemplaza la variable de sustitución léxica (&) por variables 
+-- de enlace nativas de Oracle (:b_fecha_inicio, :b_fecha_fin). Se elimina la 
+-- duplicación de pagos al desvincular ReservaHabitacion del cálculo de Pago.
 
 -- Declaración y asignación de variables de enlace (ejecutar en SQL*Plus / SQL Developer):
 VARIABLE b_fecha_inicio VARCHAR2(10);
@@ -247,13 +235,11 @@ GROUP BY m.id_municipio, m.nombre, a.id_alojamiento, a.nombre
 ORDER BY ingresos_totales DESC;
 
 
--- ------------------------------------------------------------
--- 6. UNPIVOT DE INGRESOS POR NIVEL DE TEMPORADA
--- Objetivo: Demostrar transformación PIVOT a columnas y reversión con UNPIVOT a filas.
--- Corrección aplicada:
---   - Temporada se relaciona por fechas de check-in (r.fecha_checkin BETWEEN t.fecha_inicio AND t.fecha_fin).
---   - Se elimina el cruce erróneo con Tarifa y se pre-agregan los pagos exitosos.
--- ------------------------------------------------------------
+-- 6. UNPIVOT de ingresos por nivel de temporada
+-- Demostrar transformación PIVOT a columnas y reversión con UNPIVOT a filas.
+-- Corrección: Temporada se relaciona por fechas de check-in 
+-- (r.fecha_checkin BETWEEN t.fecha_inicio AND t.fecha_fin). Se elimina el cruce 
+-- erróneo con Tarifa y se pre-agregan los pagos exitosos.
 WITH PagosPorReserva AS (
     SELECT 
         id_reserva,
@@ -297,15 +283,12 @@ UNPIVOT (
 ORDER BY anio, mes, tipo_temporada;
 
 
--- ------------------------------------------------------------
--- 7. CONSULTA GERENCIAL LIBRE: ANÁLISIS DE PÉRDIDAS POR CANCELACIÓN
--- Pregunta de negocio:
---   ¿Cuáles alojamientos registran mayor número de reservas canceladas
---   y cuál es el monto de pagos involucrados en dichas cancelaciones?
--- Corrección aplicada:
---   - Se desacopla ReservaHabitacion del cálculo de Pago para evitar duplicar montos.
---   - Se utiliza LEFT JOIN con NVL para incluir alojamientos con cancelaciones aún sin pagos registrados.
--- ------------------------------------------------------------
+-- 7. Consulta gerencial libre: Análisis de pérdidas por cancelación
+-- Pregunta de negocio: ¿Cuáles alojamientos registran mayor número de reservas 
+-- canceladas y cuál es el monto de pagos involucrados en dichas cancelaciones?
+-- Corrección: Se desacopla ReservaHabitacion del cálculo de Pago para evitar 
+-- duplicar montos. Se utiliza LEFT JOIN con NVL para incluir alojamientos con 
+-- cancelaciones aún sin pagos registrados.
 WITH PagosPorReserva AS (
     SELECT 
         id_reserva,
@@ -334,5 +317,3 @@ LEFT JOIN PagosPorReserva pr ON r.id_reserva = pr.id_reserva
 WHERE r.estado = 'CANCELADA'
 GROUP BY m.nombre, a.nombre
 ORDER BY total_reservas_canceladas DESC, ingresos_afectados_cancelacion DESC;
-
-

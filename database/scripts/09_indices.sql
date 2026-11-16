@@ -1,6 +1,6 @@
--- PROYECTO INTEGRADOR: TURISMOUQ - PLATAFORMA DE RESERVAS
--- ASIGNATURA: BASES DE DATOS II
--- Script: Índices
+-- Proyecto Integrador: TurismoUQ - Plataforma de Reservas
+-- Asignatura: Bases de Datos II
+-- Script 09: índices
 -- Entrega 3 del Proyecto
 
 --------------------------------------------------------------------------------
@@ -18,6 +18,7 @@ WHERE id_cliente = 1234
 
 SELECT * FROM TABLE (DBMS_XPLAN.DISPLAY);
 
+
 -- Crear índice B-tree compuesto, el cual ubica al cliente y filtra las fechas dentro 
 -- del mismo índice
 CREATE INDEX idx_reserva_cliente_checkin
@@ -32,6 +33,7 @@ WHERE id_cliente = 1234
 
 SELECT * FROM TABLE (DBMS_XPLAN.DISPLAY);
 
+
 -- Consulta 2: Reservas creadas en un día específico
 -- La columna fecha_reserva incluye la hora, por eso se usa TRUNC. Al aplicar 
 -- una función a la columna, un índice normal sobre fecha_reserva no se puede
@@ -44,6 +46,7 @@ FROM Reserva
 WHERE TRUNC(fecha_reserva) = DATE '2025-07-15';
 
 SELECT * FROM TABLE (DBMS_XPLAN.DISPLAY);
+
 
 -- Crear índice BASADO EN FUNCIÓN, encargado de guardar el resultado calculado de 
 -- TRUNC(fecha_reserva)
@@ -58,6 +61,7 @@ WHERE TRUNC(fecha_reserva) = DATE '2025-07-15';
 
 SELECT * FROM TABLE (DBMS_XPLAN.DISPLAY);
 
+
 -- Consulta 3: Disponibilidad de una habitación en un rango de fechas
 -- Es la misma consulta que usan sp_crear_reserva y el disparador de solape en
 -- cada reserva nueva. Sin índice recorre las todas las filas de ReservaHabitacion.
@@ -71,6 +75,7 @@ WHERE id_habitacion = 5
     AND fecha_checkout > DATE '2025-07-05';
 
 SELECT * FROM TABLE (DBMS_XPLAN.DISPLAY);
+
 
 -- Crear índice B-tree compuesto, el cual ubica la habitación y evalúa las dos fechas 
 -- dentro del mismo índice
@@ -87,6 +92,7 @@ WHERE id_habitacion = 5
 
 SELECT * FROM TABLE (DBMS_XPLAN.DISPLAY);
 
+
 -- Consulta donde el índice no ayuda: Reservas con estado COMPLETADA
 -- Gran parte de las reservas están COMPLETADAS
 -- La columna estado tiene pocos valores distintos, por eso es buena opción un
@@ -99,6 +105,7 @@ FROM Reserva
 WHERE estado = 'COMPLETADA';
 
 SELECT * FROM TABLE (DBMS_XPLAN.DISPLAY);
+
 
 -- Crear índice BITMAP sobre estado
 CREATE BITMAP INDEX bx_reserva_estado
@@ -113,6 +120,7 @@ WHERE estado = 'COMPLETADA';
 
 SELECT * FROM TABLE (DBMS_XPLAN.DISPLAY);
 
+
 -- Plan forzando el uso del índice a pesar de que el costo es mayor
 EXPLAIN PLAN FOR
 SELECT /*+ INDEX(r bx_reserva_estado) */ id_reserva, id_cliente, fecha_checkin, fecha_checkout
@@ -124,6 +132,7 @@ SELECT * FROM TABLE (DBMS_XPLAN.DISPLAY);
 
 -- Borramos el índice porque no aporta mucho y el costo es bastante
 DROP INDEX bx_reserva_estado;
+
 
 -- Verificamos que índices han quedado creados en el proyecto para utilizar
 SELECT i.index_name, i.index_type, COUNT(c.column_name) AS columnas

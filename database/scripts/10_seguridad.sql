@@ -1,6 +1,6 @@
--- PROYECTO INTEGRADOR: TURISMOUQ - PLATAFORMA DE RESERVAS
--- ASIGNATURA: BASES DE DATOS II
--- Script: Seguridad con roles, usuarios, GRANT, vistas y perfil
+-- Proyecto Integrador: TurismoUQ - Plataforma de Reservas
+-- Asignatura: Bases de Datos II
+-- Script 10: Seguridad con roles, usuarios, GRANT, vistas y perfil
 -- Entrega 3 del Proyecto
 
 --------------------------------------------------------------------------------
@@ -12,7 +12,7 @@
 -- únicamente las columnas necesarias para atender, sin montos de pagos.
 
 -- Habitaciones con su alojamiento y municipio
-CREATE OR REPLACE VIEW proyecto.vw_recepcion_habitaciones AS
+CREATE OR REPLACE VIEW turismo.vw_recepcion_habitaciones AS
 SELECT h.id_habitacion,
        h.numero,
        h.tipo,
@@ -20,22 +20,24 @@ SELECT h.id_habitacion,
        a.id_alojamiento,
        a.nombre AS alojamiento,
        m.nombre AS municipio
-FROM proyecto.Habitacion h
-JOIN proyecto.Alojamiento a ON h.id_alojamiento = a.id_alojamiento
-JOIN proyecto.Municipio m ON a.id_municipio = m.id_municipio;
+FROM turismo.Habitacion h
+JOIN turismo.Alojamiento a ON h.id_alojamiento = a.id_alojamiento
+JOIN turismo.Municipio m ON a.id_municipio = m.id_municipio;
+
 
 -- Clientes con sus datos de contacto
-CREATE OR REPLACE VIEW proyecto.vw_recepcion_clientes AS
+CREATE OR REPLACE VIEW turismo.vw_recepcion_clientes AS
 SELECT id_cliente,
        nombre_completo,
        tipo_documento,
        numero_documento,
        telefono,
        ciudad_origen
-FROM proyecto.Cliente;
+FROM turismo.Cliente;
+
 
 -- Reservas con cliente, habitación y estado de pago sin mostrar montos
-CREATE OR REPLACE VIEW proyecto.vw_recepcion_reservas AS
+CREATE OR REPLACE VIEW turismo.vw_recepcion_reservas AS
 SELECT r.id_reserva,
        r.estado,
        rh.fecha_checkin,
@@ -47,16 +49,17 @@ SELECT r.id_reserva,
        h.numero AS numero_habitacion,
        a.nombre AS alojamiento,
        CASE
-           WHEN EXISTS (SELECT 1 FROM proyecto.Pago p
+           WHEN EXISTS (SELECT 1 FROM turismo.Pago p
                 WHERE p.id_reserva = r.id_reserva AND p.estado = 'EXITOSO')
            THEN 'CON PAGO'
            ELSE 'SIN PAGO'
        END AS estado_pago
-FROM proyecto.Reserva r
-JOIN proyecto.ReservaHabitacion rh ON r.id_reserva = rh.id_reserva
-JOIN proyecto.Cliente c ON r.id_cliente = c.id_cliente
-JOIN proyecto.Habitacion h ON rh.id_habitacion = h.id_habitacion
-JOIN proyecto.Alojamiento a ON h.id_alojamiento = a.id_alojamiento;
+FROM turismo.Reserva r
+JOIN turismo.ReservaHabitacion rh ON r.id_reserva = rh.id_reserva
+JOIN turismo.Cliente c ON r.id_cliente = c.id_cliente
+JOIN turismo.Habitacion h ON rh.id_habitacion = h.id_habitacion
+JOIN turismo.Alojamiento a ON h.id_alojamiento = a.id_alojamiento;
+
 
 -- Perfil con límites de sesión
 CREATE PROFILE perfil_turismouq LIMIT
@@ -70,6 +73,7 @@ CREATE PROFILE perfil_turismouq LIMIT
     FAILED_LOGIN_ATTEMPTS 3     
     PASSWORD_LOCK_TIME 1/24;    
 
+
 -- Roles
 CREATE ROLE rol_recepcion;
 CREATE ROLE rol_admin_alojamiento;
@@ -81,61 +85,66 @@ GRANT CREATE SESSION TO rol_admin_alojamiento;
 GRANT CREATE SESSION TO rol_gerente;
 GRANT CREATE SESSION TO rol_auditor;
 
+
 -- Privilegios de recepción: solo vistas y procedimientos, ninguna tabla
-GRANT SELECT ON proyecto.vw_recepcion_habitaciones TO rol_recepcion;
-GRANT SELECT ON proyecto.vw_recepcion_clientes TO rol_recepcion;
-GRANT SELECT ON proyecto.vw_recepcion_reservas TO rol_recepcion;
-GRANT EXECUTE ON proyecto.sp_crear_reserva_segura TO rol_recepcion;
-GRANT EXECUTE ON proyecto.sp_registrar_reserva_pago TO rol_recepcion;
+GRANT SELECT ON turismo.vw_recepcion_habitaciones TO rol_recepcion;
+GRANT SELECT ON turismo.vw_recepcion_clientes TO rol_recepcion;
+GRANT SELECT ON turismo.vw_recepcion_reservas TO rol_recepcion;
+GRANT EXECUTE ON turismo.sp_crear_reserva_segura TO rol_recepcion;
+GRANT EXECUTE ON turismo.sp_registrar_reserva_pago TO rol_recepcion;
+
 
 -- Privilegios del administrador de alojamiento: gestiona habitaciones, 
 -- tarifas y servicios, consulta reservas y pagos, solo puede cambiar el estado
 -- de una reserva
-GRANT SELECT, INSERT, UPDATE ON proyecto.Habitacion TO rol_admin_alojamiento;
-GRANT SELECT, INSERT, UPDATE ON proyecto.Tarifa TO rol_admin_alojamiento;
-GRANT SELECT, INSERT, UPDATE ON proyecto.Servicio TO rol_admin_alojamiento;
-GRANT SELECT ON proyecto.Municipio TO rol_admin_alojamiento;
-GRANT SELECT ON proyecto.TipoAlojamiento TO rol_admin_alojamiento;
-GRANT SELECT ON proyecto.Alojamiento TO rol_admin_alojamiento;
-GRANT SELECT ON proyecto.Temporada TO rol_admin_alojamiento;
-GRANT SELECT ON proyecto.Cliente TO rol_admin_alojamiento;
-GRANT SELECT ON proyecto.Reserva TO rol_admin_alojamiento;
-GRANT SELECT ON proyecto.ReservaHabitacion TO rol_admin_alojamiento;
-GRANT SELECT ON proyecto.ReservaServicio TO rol_admin_alojamiento;
-GRANT SELECT ON proyecto.Pago TO rol_admin_alojamiento;
-GRANT SELECT ON proyecto.Resena TO rol_admin_alojamiento;
-GRANT UPDATE (estado) ON proyecto.Reserva TO rol_admin_alojamiento;
-GRANT EXECUTE ON proyecto.sp_crear_reserva_segura TO rol_admin_alojamiento;
-GRANT EXECUTE ON proyecto.sp_registrar_reserva_pago TO rol_admin_alojamiento;
+GRANT SELECT, INSERT, UPDATE ON turismo.Habitacion TO rol_admin_alojamiento;
+GRANT SELECT, INSERT, UPDATE ON turismo.Tarifa TO rol_admin_alojamiento;
+GRANT SELECT, INSERT, UPDATE ON turismo.Servicio TO rol_admin_alojamiento;
+GRANT SELECT ON turismo.Municipio TO rol_admin_alojamiento;
+GRANT SELECT ON turismo.TipoAlojamiento TO rol_admin_alojamiento;
+GRANT SELECT ON turismo.Alojamiento TO rol_admin_alojamiento;
+GRANT SELECT ON turismo.Temporada TO rol_admin_alojamiento;
+GRANT SELECT ON turismo.Cliente TO rol_admin_alojamiento;
+GRANT SELECT ON turismo.Reserva TO rol_admin_alojamiento;
+GRANT SELECT ON turismo.ReservaHabitacion TO rol_admin_alojamiento;
+GRANT SELECT ON turismo.ReservaServicio TO rol_admin_alojamiento;
+GRANT SELECT ON turismo.Pago TO rol_admin_alojamiento;
+GRANT SELECT ON turismo.Resena TO rol_admin_alojamiento;
+GRANT UPDATE (estado) ON turismo.Reserva TO rol_admin_alojamiento;
+GRANT EXECUTE ON turismo.sp_crear_reserva_segura TO rol_admin_alojamiento;
+GRANT EXECUTE ON turismo.sp_registrar_reserva_pago TO rol_admin_alojamiento;
+
 
 -- Privilegios del gerente: consulta la operación y los reportes, y puede 
 -- ejecutar la liquidación mensual
-GRANT SELECT ON proyecto.Municipio TO rol_gerente;
-GRANT SELECT ON proyecto.TipoAlojamiento TO rol_gerente;
-GRANT SELECT ON proyecto.Alojamiento TO rol_gerente;
-GRANT SELECT ON proyecto.Habitacion TO rol_gerente;
-GRANT SELECT ON proyecto.Temporada TO rol_gerente;
-GRANT SELECT ON proyecto.Tarifa TO rol_gerente;
-GRANT SELECT ON proyecto.Cliente TO rol_gerente;
-GRANT SELECT ON proyecto.Reserva TO rol_gerente;
-GRANT SELECT ON proyecto.ReservaHabitacion TO rol_gerente;
-GRANT SELECT ON proyecto.Servicio TO rol_gerente;
-GRANT SELECT ON proyecto.ReservaServicio TO rol_gerente;
-GRANT SELECT ON proyecto.Pago TO rol_gerente;
-GRANT SELECT ON proyecto.Resena TO rol_gerente;
-GRANT SELECT ON proyecto.LiquidacionMensual TO rol_gerente;
-GRANT SELECT ON proyecto.HistoricoReserva TO rol_gerente;
-GRANT SELECT ON proyecto.mv_ocupacion_mensual TO rol_gerente;
-GRANT EXECUTE ON proyecto.sp_liquidacion_mensual TO rol_gerente;
+GRANT SELECT ON turismo.Municipio TO rol_gerente;
+GRANT SELECT ON turismo.TipoAlojamiento TO rol_gerente;
+GRANT SELECT ON turismo.Alojamiento TO rol_gerente;
+GRANT SELECT ON turismo.Habitacion TO rol_gerente;
+GRANT SELECT ON turismo.Temporada TO rol_gerente;
+GRANT SELECT ON turismo.Tarifa TO rol_gerente;
+GRANT SELECT ON turismo.Cliente TO rol_gerente;
+GRANT SELECT ON turismo.Reserva TO rol_gerente;
+GRANT SELECT ON turismo.ReservaHabitacion TO rol_gerente;
+GRANT SELECT ON turismo.Servicio TO rol_gerente;
+GRANT SELECT ON turismo.ReservaServicio TO rol_gerente;
+GRANT SELECT ON turismo.Pago TO rol_gerente;
+GRANT SELECT ON turismo.Resena TO rol_gerente;
+GRANT SELECT ON turismo.LiquidacionMensual TO rol_gerente;
+GRANT SELECT ON turismo.HistoricoReserva TO rol_gerente;
+GRANT SELECT ON turismo.mv_ocupacion_mensual TO rol_gerente;
+GRANT EXECUTE ON turismo.sp_liquidacion_mensual TO rol_gerente;
+
 
 -- Privilegios del auditor: solo lectura de lo necesario
-GRANT SELECT ON proyecto.AuditoriaTarifa TO rol_auditor;
-GRANT SELECT ON proyecto.Tarifa TO rol_auditor;
-GRANT SELECT ON proyecto.Pago TO rol_auditor;
-GRANT SELECT ON proyecto.Reserva TO rol_auditor;
-GRANT SELECT ON proyecto.ReservaHabitacion TO rol_auditor;
-GRANT SELECT ON proyecto.LiquidacionMensual TO rol_auditor;
-GRANT SELECT ON proyecto.HistoricoReserva TO rol_auditor;
+GRANT SELECT ON turismo.AuditoriaTarifa TO rol_auditor;
+GRANT SELECT ON turismo.Tarifa TO rol_auditor;
+GRANT SELECT ON turismo.Pago TO rol_auditor;
+GRANT SELECT ON turismo.Reserva TO rol_auditor;
+GRANT SELECT ON turismo.ReservaHabitacion TO rol_auditor;
+GRANT SELECT ON turismo.LiquidacionMensual TO rol_auditor;
+GRANT SELECT ON turismo.HistoricoReserva TO rol_auditor;
+
 
 -- Usuarios, uno por cada rol, con el perfil de límites de sesión
 -- ninguno puede ver la tabla UsuarioSistema, porque contiene contraseñas.
@@ -148,6 +157,7 @@ GRANT rol_recepcion TO usr_recepcion;
 GRANT rol_admin_alojamiento TO usr_admin_aloj;
 GRANT rol_gerente TO usr_gerente;
 GRANT rol_auditor TO usr_auditor;
+
 
 -- Verificación de usuarios, perfil y roles
 SELECT username, profile, account_status

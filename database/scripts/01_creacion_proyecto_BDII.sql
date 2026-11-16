@@ -1,15 +1,14 @@
-----------------------------------------------------------------------------------
--- PROYECTO INTEGRADOR: TURISMOUQ - PLATAFORMA DE RESERVAS
--- ASIGNATURA: BASES DE DATOS II
--- SCRIPT 01: CREACIÓN DE ESTRUCTURAS DDL (TABLAS, CONSTRAINTS Y COMENTARIOS)
+-- Proyecto Integrador: TurismoUQ - Plataforma de Reservas
+-- Asignatura: Bases de Datos II
+-- Script 01: Creación de estructuras DDL (Tablas, constraints y comentarios)
+-- Entrega 1 del Proyecto
+
 --------------------------------------------------------------------------------
 
----------------------------------------------------------------------------------
 -- Limpieza para re ejecuciones
---------------------------------------------------------------------------------
 BEGIN
     FOR t IN (
-        SELECT table_name 
+        SELECT table_name
         FROM user_tables 
         WHERE table_name IN (
             'RESENA', 'RESERVASERVICIO', 'SERVICIO', 'PAGO', 
@@ -23,9 +22,7 @@ BEGIN
 END;
 /
 
---------------------------------------------------------------------------------
--- 1. TABLA: MUNICIPIO
---------------------------------------------------------------------------------
+-- 1. Tabla: Municipio
 CREATE TABLE Municipio (
     id_municipio    NUMBER(10)   NOT NULL,
     nombre          VARCHAR2(50) NOT NULL,
@@ -48,9 +45,7 @@ COMMENT ON COLUMN Municipio.codigo_postal IS
 'Código postal del municipio.';
 
 
---------------------------------------------------------------------------------
--- 2. TABLA: TIPOALOJAMIENTO
---------------------------------------------------------------------------------
+-- 2. Tabla: TipoAlojamiento
 CREATE TABLE TipoAlojamiento (
     id_tipo_alojamiento NUMBER(10)   NOT NULL,
     nombre              VARCHAR2(50) NOT NULL,
@@ -73,9 +68,7 @@ COMMENT ON COLUMN TipoAlojamiento.descripcion IS
 'Descripción del tipo de alojamiento.';
 
 
---------------------------------------------------------------------------------
--- 3. TABLA: ALOJAMIENTO
---------------------------------------------------------------------------------
+-- 3. Tabla: Alojamiento
 CREATE TABLE Alojamiento (
     id_alojamiento      NUMBER(10)    NOT NULL,
     id_municipio        NUMBER(10)    NOT NULL,
@@ -120,9 +113,7 @@ COMMENT ON COLUMN Alojamiento.telefono IS
 'Teléfono de contacto del alojamiento.';
 
 
---------------------------------------------------------------------------------
--- 4. TABLA: HABITACION
---------------------------------------------------------------------------------
+-- 4. Tabla: Habitacion
 CREATE TABLE Habitacion (
     id_habitacion       NUMBER(10)   NOT NULL,
     id_alojamiento      NUMBER(10)   NOT NULL,
@@ -154,9 +145,7 @@ COMMENT ON COLUMN Habitacion.descripcion IS
 'Descripción de las características de la habitación.';
 
 
---------------------------------------------------------------------------------
--- 5. TABLA: TEMPORADA
---------------------------------------------------------------------------------
+-- 5. Tabla: Temporada
 CREATE TABLE Temporada (
     id_temporada NUMBER(10)   NOT NULL,
     nombre       VARCHAR2(50) NOT NULL,
@@ -190,9 +179,7 @@ COMMENT ON COLUMN Temporada.anio IS
 'Año al que pertenece la temporada.';
 
 
---------------------------------------------------------------------------------
--- 6. TABLA: TARIFA
---------------------------------------------------------------------------------
+-- 6. Tabla: Tarifa
 CREATE TABLE Tarifa (
     id_tarifa     NUMBER(10)    NOT NULL,
     id_habitacion NUMBER(10)    NOT NULL,
@@ -213,9 +200,7 @@ COMMENT ON COLUMN Tarifa.precio_noche IS
 'Precio por noche de la habitación durante la temporada asociada.';
 
 
---------------------------------------------------------------------------------
--- 7. TABLA: CLIENTE
---------------------------------------------------------------------------------
+-- 7. Tabla: Cliente
 CREATE TABLE Cliente (
     id_cliente       NUMBER(10)    NOT NULL,
     nombre_completo  VARCHAR2(150) NOT NULL,
@@ -244,9 +229,7 @@ COMMENT ON COLUMN Cliente.fecha_registro IS
 'Fecha en que el cliente se registra en la plataforma.';
 
 
---------------------------------------------------------------------------------
--- 8. TABLA: RESERVA
---------------------------------------------------------------------------------
+-- 8. Tabla: Reserva
 CREATE TABLE Reserva (
     id_reserva     NUMBER(10)   NOT NULL,
     id_cliente     NUMBER(10)   NOT NULL,
@@ -277,9 +260,7 @@ COMMENT ON COLUMN Reserva.estado IS
 'Estado de la reserva: PENDIENTE, CONFIRMADA, CANCELADA o COMPLETADA.';
 
 
---------------------------------------------------------------------------------
--- 9. TABLA: RESERVAHABITACION
---------------------------------------------------------------------------------
+-- 9. Tabla: ReservaHabitacion
 CREATE TABLE ReservaHabitacion (
     id_reserva_habitacion NUMBER(10) NOT NULL,
     id_reserva            NUMBER(10) NOT NULL,
@@ -308,9 +289,7 @@ COMMENT ON COLUMN ReservaHabitacion.cantidad_huespedes IS
 'Cantidad de huéspedes asignados a esta habitación.';
 
 
---------------------------------------------------------------------------------
--- 10. TABLA: PAGO
---------------------------------------------------------------------------------
+-- 10. Tabla: Pago
 CREATE TABLE Pago (
     id_pago     NUMBER(10)   NOT NULL,
     id_reserva  NUMBER(10)   NOT NULL,
@@ -339,9 +318,7 @@ COMMENT ON COLUMN Pago.estado IS
 'Estado del pago: EXITOSO, FALLIDO, PENDIENTE o REEMBOLSADO.';
 
 
--- ============================================================
--- 11. TABLA: SERVICIO
--- ============================================================
+-- 11. Tabla: Servicio
 CREATE TABLE Servicio (
     id_servicio    NUMBER(10)    NOT NULL,
     id_alojamiento NUMBER(10)    NOT NULL,
@@ -368,9 +345,7 @@ COMMENT ON COLUMN Servicio.precio IS
 'Precio actual por unidad del servicio.';
 
 
---------------------------------------------------------------------------------
--- 12. TABLA: RESERVASERVICIO
---------------------------------------------------------------------------------
+-- 12. Tabla: ReservaServicio
 CREATE TABLE ReservaServicio (
     id_reserva_servicio NUMBER(10)   NOT NULL,
     id_reserva          NUMBER(10)   NOT NULL,
@@ -396,9 +371,7 @@ COMMENT ON COLUMN ReservaServicio.precio_unitario IS
 'Precio por unidad aplicado al momento de la reserva.';
 
 
---------------------------------------------------------------------------------
--- 13. TABLA: RESENA
---------------------------------------------------------------------------------
+-- 13. Tabla: Resena
 CREATE TABLE Resena (
     id_resena      NUMBER(10) NOT NULL,
     id_cliente     NUMBER(10) NOT NULL,
@@ -423,9 +396,7 @@ COMMENT ON COLUMN Resena.comentario IS
 'Comentario opcional realizado por el cliente.';
 
 
---------------------------------------------------------------------------------
--- 14. TABLA: USUARIOSISTEMA
---------------------------------------------------------------------------------
+-- 14. Tabla: UsuarioSistema
 CREATE TABLE UsuarioSistema (
     id_usuario     NUMBER(10)    NOT NULL,
     id_alojamiento NUMBER(10),

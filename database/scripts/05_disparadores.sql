@@ -1,6 +1,6 @@
--- PROYECTO INTEGRADOR: TURISMOUQ - PLATAFORMA DE RESERVAS
--- ASIGNATURA: BASES DE DATOS II
--- Script: Disparadores
+-- Proyecto Integrador: TurismoUQ - Plataforma de Reservas
+-- Asignatura: Bases de Datos II
+-- Script 05: Disparadores
 -- Entrega 2 del Proyecto
 
 --------------------------------------------------------------------------------
@@ -92,6 +92,7 @@ COMPOUND TRIGGER
 
 END trg_auditoria_tarifa_sentencia;
 /
+
 
 -- 2. Limpiar la versión anterior del disparador de solape
 BEGIN

@@ -1,6 +1,6 @@
--- PROYECTO INTEGRADOR: TURISMOUQ - PLATAFORMA DE RESERVAS
--- ASIGNATURA: BASES DE DATOS II
--- Script: Concurrencia
+-- Proyecto Integrador: TurismoUQ - Plataforma de Reservas
+-- Asignatura: Bases de Datos II
+-- Script 08: Concurrencia
 -- Entrega 3 del Proyecto
 
 --------------------------------------------------------------------------------
@@ -53,6 +53,7 @@ BEGIN
 END sp_crear_reserva_segura;
 /
 
+
 -- Luego de crear las reservas en el primer escenario utilizando ambas sesiones, 
 -- verificamos que hay doble reserva de la Habitación 1
 SELECT a.id_reserva AS reserva_a, b.id_reserva AS reserva_b,
@@ -66,11 +67,13 @@ JOIN ReservaHabitacion b
  AND a.fecha_checkout > b.fecha_checkin
 WHERE a.id_habitacion = 1 AND a.fecha_checkin >= DATE '2029-01-01';
 
+
 -- Después de haber intentado crear las reservas en el segundo escenario en ambas 
 -- sesiones, verificamos que solo haya una reserva para la Habitación 1
 SELECT id_reserva_habitacion, id_reserva, id_habitacion, fecha_checkin, fecha_checkout
 FROM ReservaHabitacion
 WHERE id_habitacion = 1 AND fecha_checkin >= DATE '2029-01-01';
+
 
 -- Limpiar los datos de los escenarios en ambas sesiones
 DELETE FROM ReservaHabitacion WHERE fecha_checkin >= DATE '2029-01-01';

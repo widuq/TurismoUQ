@@ -1,6 +1,6 @@
--- PROYECTO INTEGRADOR: TURISMOUQ - PLATAFORMA DE RESERVAS
--- ASIGNATURA: BASES DE DATOS II
--- Script: Funciones,Procedimientos, Cursores y Paquete
+-- Proyecto Integrador: TurismoUQ - Plataforma de Reservas
+-- Asignatura: Bases de Datos II
+-- Script 04: Funciones, Procedimiento, Cursores y Paquete
 -- Entrega 2 del Proyecto
 
 --------------------------------------------------------------------------------
@@ -55,6 +55,7 @@ COMMENT ON COLUMN AuditoriaTarifa.usuario IS
 COMMENT ON COLUMN AuditoriaTarifa.fecha_cambio IS 
 'Fecha y hora exacta en la que se realizó la operación.';
 
+
 -- 2. Tabla para persistir los resultados del proceso masivo de liquidación mensual
 BEGIN
     EXECUTE IMMEDIATE 'DROP TABLE LiquidacionMensual CASCADE CONSTRAINTS PURGE';
@@ -89,6 +90,7 @@ CREATE TABLE LiquidacionMensual (
 
 COMMENT ON TABLE LiquidacionMensual IS
 'Historial de liquidaciones mensuales masivas generadas por alojamiento.';
+
 
 -- 3. Secuencias: seq_auditoria_tarifa, seq_liquidacion_mensual seq_reserva y 
 -- seq_reserva_habitacion
@@ -273,6 +275,7 @@ CREATE OR REPLACE PACKAGE PKG_TURISMOUQ AS
 
 END PKG_TURISMOUQ;
 /
+
 
 -- 5. Cuerpo del paquete: PKG_TURISMOUQ
 CREATE OR REPLACE PACKAGE BODY PKG_TURISMOUQ AS
@@ -595,6 +598,7 @@ CREATE OR REPLACE PACKAGE BODY PKG_TURISMOUQ AS
 
 END PKG_TURISMOUQ;
 /
+
 
 -- 6. Funciones y procedimientos que llaman al paquete 
 

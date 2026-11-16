@@ -1,6 +1,6 @@
--- PROYECTO INTEGRADOR: TURISMOUQ - PLATAFORMA DE RESERVAS
--- ASIGNATURA: BASES DE DATOS II
--- Script: Sesión A para probar la concurrencia
+-- Proyecto Integrador: TurismoUQ - Plataforma de Reservas
+-- Asignatura: Bases de Datos II
+-- Script 08a: Sesión A para probar la concurrencia
 -- Entrega 3 del Proyecto
 
 --------------------------------------------------------------------------------
@@ -19,8 +19,10 @@ BEGIN
 END;
 /
 
+
 -- Primero realizar COMMIT con la Sesión A
 COMMIT;
+
 
 -- Segundo escenario de concurrencia después de crear el procedimiento sp_crear_reserva_segura 
 -- encargado de bloquear la fila cuando se desea realizar una reserva, usando la sesión A
@@ -33,6 +35,7 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('Sesión A: reserva ' || v_id || ' creada.');
 END;
 /
+
 
 -- Igual que en el escenario anterior, ejecutamos primero el COMMIT en la Sesión A
 -- Después de realizar el COMMIT en la Sesión A se desbloquea la Sesión B

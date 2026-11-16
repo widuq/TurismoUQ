@@ -1,6 +1,6 @@
--- PROYECTO INTEGRADOR: TURISMOUQ - PLATAFORMA DE RESERVAS
--- ASIGNATURA: BASES DE DATOS II
--- Script: 10 casos de prueba
+-- Proyecto Integrador: TurismoUQ - Plataforma de Reservas
+-- Asignatura: Bases de Datos II
+-- Script 11: Casos de prueba
 -- Entrega 2 del Proyecto
 
 --------------------------------------------------------------------------------
@@ -32,6 +32,7 @@ BEGIN
 END;
 /
 
+
 -- Prueba 2: sp_crear_reserva exitosa
 -- Caso: Registrar una reserva válida para el cliente 1 en habitación 1 
 -- (IDs generados por secuencia)
@@ -53,6 +54,7 @@ BEGIN
 END;
 /
 
+
 -- Prueba 3: Validación de excepciones con el procedimiento sp_crear_reserva 
 -- usando RAISE_APPLICATION_ERROR
 
@@ -68,6 +70,7 @@ EXCEPTION
 END;
 /
 
+
 -- Capacidad máxima excedida (-20003)
 DECLARE
     v_id_res NUMBER;
@@ -79,6 +82,7 @@ EXCEPTION
         DBMS_OUTPUT.PUT_LINE('Captura esperada: ' || SQLERRM);
 END;
 /
+
 
 -- Habitación no disponible por fechas solapadas (-20001)
 DECLARE
@@ -99,12 +103,14 @@ EXCEPTION
 END;
 /
 
+
 -- Prueba 4: Proceso masivo de liquidación mensual con el cursor explícito 
 -- parametrizado sp_liquidacion_mensual
 BEGIN
     PKG_TURISMOUQ.sp_liquidacion_mensual(p_anio => 2025, p_mes => 7);
 END;
 /
+
 
 -- Prueba 5: Disparador a nivel de sentencia (Auditoría de cambios sobre TARIFA)
 DECLARE
@@ -143,6 +149,7 @@ BEGIN
     COMMIT;
 END;
 /
+
 
 -- Prueba 6: Disparador compuesto de solape a nivel de fila, con dos inserciones solapadas 
 -- antes del COMMIT, así se muestra que se impida el solape en ReservaHabitacion.
@@ -203,6 +210,7 @@ EXCEPTION
 END;
 /
 
+
 -- Prueba 7: Consulta y refresco de la Vista Materializada
 BEGIN
     DBMS_MVIEW.REFRESH('MV_OCUPACION_MENSUAL', 'C');
@@ -224,6 +232,7 @@ FROM mv_ocupacion_mensual
 WHERE anio = 2025 AND mes = 7
 ORDER BY total_ingresos_hospedaje DESC
 FETCH FIRST 5 ROWS ONLY;
+
 
 -- Prueba 8: Cuadre entre la liquidación y la vista materializada para Julio de 2025
 SELECT
@@ -252,10 +261,12 @@ FROM (SELECT * FROM LiquidacionMensual WHERE anio = 2025 AND mes = 7) l
 FULL OUTER JOIN (SELECT * FROM mv_ocupacion_mensual WHERE anio = 2025 AND mes = 7) v
     ON l.id_alojamiento = v.id_alojamiento;
 
+
 -- Prueba 9: El histórico está en su tablespace
 SELECT table_name, tablespace_name
 FROM user_tables
 WHERE table_name = 'HISTORICORESERVA';
+
 
 -- Prueba 10: Paso al histórico
 DECLARE

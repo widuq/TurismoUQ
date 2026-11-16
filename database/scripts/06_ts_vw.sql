@@ -1,6 +1,6 @@
--- PROYECTO INTEGRADOR: TURISMOUQ - PLATAFORMA DE RESERVAS
--- ASIGNATURA: BASES DE DATOS II
--- Script: Tablespace, histórico y vista materializada
+-- Proyecto Integrador: TurismoUQ - Plataforma de Reservas
+-- Asignatura: Bases de Datos II
+-- Script 06: Tablespace histórico y vista materializada
 -- Entrega 2 del Proyecto
 
 --------------------------------------------------------------------------------
@@ -43,6 +43,7 @@ BEGIN
     END IF;
 END;
 /
+
 
 -- 2. Crear tabla HistoricoReserva. Una fila por reserva archivada. Una reserva
 -- puede tener varias habitaciones, por eso se guarda la cantidad y no un 
@@ -90,6 +91,7 @@ EXCEPTION
 END;
 /
 CREATE SEQUENCE seq_historico_reserva START WITH 1 INCREMENT BY 1 NOCACHE;
+
 
 -- 3. Crear el procedimiento sp_archivar_reservas, el cual será como un mecanismo
 -- de paso hacia la tabla HistoricoReserva. Este se encarga de copiar a 
@@ -156,6 +158,7 @@ EXCEPTION
         RAISE;
 END sp_archivar_reservas;
 /
+
 
 -- 4. Crear vista materializada de ocupación mensual mv_ocupacion_mensual, para
 -- almacenar resultados precalculados sobre la ocupación mensual de los 
@@ -267,6 +270,7 @@ JOIN Alojamiento a ON rs.id_alojamiento = a.id_alojamiento
 JOIN Municipio m ON a.id_municipio = m.id_municipio
 JOIN TipoAlojamiento ta ON a.id_tipo_alojamiento = ta.id_tipo_alojamiento
 JOIN HabPorAlojamiento hp ON a.id_alojamiento = hp.id_alojamiento;
+
 
 -- Índices sobre la vista materializada para acelerar las consultas analíticas
 CREATE INDEX idx_mv_ocup_periodo ON mv_ocupacion_mensual (anio, mes);

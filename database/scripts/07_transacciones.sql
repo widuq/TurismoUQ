@@ -1,6 +1,6 @@
--- PROYECTO INTEGRADOR: TURISMOUQ - PLATAFORMA DE RESERVAS
--- ASIGNATURA: BASES DE DATOS II
--- Script: Transacciones
+-- Proyecto Integrador: TurismoUQ - Plataforma de Reservas
+-- Asignatura: Bases de Datos II
+-- Script 07: Transacciones con 3 demostraciones
 -- Entrega 3 del Proyecto
 
 --------------------------------------------------------------------------------
@@ -36,6 +36,7 @@ BEGIN
         || v_inicio || ' INCREMENT BY 1 NOCACHE';
 END;
 /
+
 
 -- 2. Procedimiento transaccional sp_registrar_reserva_pago 
 CREATE OR REPLACE PROCEDURE sp_registrar_reserva_pago(
@@ -124,6 +125,7 @@ EXCEPTION
 END sp_registrar_reserva_pago;
 /
 
+
 -- 3. Demostraciones: cada demostración termina con un ROLLBACK para no dejar 
 -- datos. Se busca una habitación llibre del 26/12/2026 al 29/12/2026, que 
 -- tiene temporada.
@@ -163,6 +165,7 @@ BEGIN
 END;
 /
 
+
 -- Segunda desmotración: ROLLBACK PARCIAL. El servicio a utilizar es de otro
 -- alojamiento, por lo tanto se descarta solo el servicio, pero la reserva y el 
 -- pago se quedan
@@ -198,6 +201,7 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('ROLLBACK de la demostración ejecutado.');
 END;
 /
+
 
 -- Tercera demostración: ROLLBACK TOTAL. Fechas de 2030 sin temporada definida: 
 -- la reserva se crea, pero fn_valor_estadia falla al calcular el pago mostrando 

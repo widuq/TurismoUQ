@@ -1,3 +1,10 @@
+-- Proyecto Integrador: TurismoUQ - Plataforma de Reservas
+-- Asignatura: Bases de Datos II
+-- Script 02: Carga de datos mínimos para cada tabla
+-- Entrega 1 del Proyecto
+
+--------------------------------------------------------------------------------
+
 SET SERVEROUTPUT ON;
 
 DECLARE
