@@ -293,3 +293,83 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('Tras el ROLLBACK, reservas operativas: ' || v_despues);
 END;
 /
+
+-- Casos de pruebas para los 4 usuarios creados
+
+-- Conectado como usr_recepcion
+
+-- Funciona: consulta de las vistas
+SELECT * FROM turismo.vw_recepcion_reservas FETCH FIRST 5 ROWS ONLY;
+SELECT * FROM turismo.vw_recepcion_habitaciones FETCH FIRST 5 ROWS ONLY;
+
+-- Falla con ORA-00942: recepción no puede ver las tablas
+SELECT * FROM turismo.Reserva FETCH FIRST 5 ROWS ONLY;
+SELECT * FROM turismo.Pago FETCH FIRST 5 ROWS ONLY;
+SELECT * FROM turismo.UsuarioSistema;
+
+-- Falla con el error ORA-41900: recepción no puede modificar datos a través de las vistas
+DELETE FROM turismo.vw_recepcion_clientes;
+
+-- Funciona: crear una reserva a través del procedimiento, sin acceso a las tablas
+SET SERVEROUTPUT ON SIZE UNLIMITED;
+DECLARE v_id NUMBER;
+BEGIN
+    turismo.sp_crear_reserva_segura(1, 1, DATE '2029-09-10', DATE '2029-09-12', 2, v_id);
+    DBMS_OUTPUT.PUT_LINE('Reserva creada por recepción: ' || v_id);
+    ROLLBACK;
+END;
+/
+
+
+-- Conectado como usr_admin_aloj
+
+-- Funciona: consultar y modificar tarifas, y cambiar solo el estado de reservas
+SELECT COUNT(*) FROM turismo.Habitacion;
+UPDATE turismo.Tarifa SET precio_noche = precio_noche WHERE id_tarifa = 1;
+UPDATE turismo.Reserva SET estado = estado WHERE id_reserva = 1;
+ROLLBACK;
+
+-- Falla con ORA-41900: no puede cambiar otras columnas ni borrar pagos
+UPDATE turismo.Reserva SET fecha_checkin = fecha_checkin WHERE id_reserva = 1;
+DELETE FROM turismo.Pago WHERE id_pago = 1;
+
+-- Falla con ORA-00942: no ve la tabla de usuarios del sistema
+SELECT * FROM turismo.UsuarioSistema;
+
+
+-- Conectado como usr_gerente
+
+-- Funciona: consultar los reportes y ejecutar la liquidación
+SELECT anio, mes, nombre_alojamiento, porcentaje_ocupacion
+FROM turismo.mv_ocupacion_mensual
+WHERE anio = 2025 AND mes = 7
+ORDER BY porcentaje_ocupacion DESC
+FETCH FIRST 5 ROWS ONLY;
+
+SET SERVEROUTPUT ON SIZE UNLIMITED;
+BEGIN
+    turismo.sp_liquidacion_mensual(2025, 7);
+    ROLLBACK;
+END;
+/
+
+-- Falla con ORA-41900: el gerente no puede modificar tarifas
+UPDATE turismo.Tarifa SET precio_noche = 1 WHERE id_tarifa = 1;
+
+-- Falla con ORA-00942: no ve la tabla de usuarios del sistema
+SELECT * FROM turismo.UsuarioSistema;
+
+
+-- Conectado como usr_auditor
+
+-- Funciona: consultar la auditoría de tarifas
+SELECT id_auditoria, id_tarifa, precio_anterior, precio_nuevo, operacion, usuario, fecha_cambio
+FROM turismo.AuditoriaTarifa
+ORDER BY id_auditoria DESC
+FETCH FIRST 5 ROWS ONLY;
+
+-- Falla con ORA-41900: el auditor no puede modificar la auditoría
+DELETE FROM turismo.AuditoriaTarifa;
+
+-- Falla con ORA-00942: el auditor no ve la tabla de clientes
+SELECT * FROM turismo.Cliente;

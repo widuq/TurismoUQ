@@ -103,7 +103,7 @@ ORDER BY
     GROUPING(t.nombre) ASC, t.nombre;
 
 
--- 3. Los 3 Alojamientos de mayor ingreso dentro de cada Municipio con RANK y 
+-- 3. Los 3 Alojamientos de mayor ingreso dentro de cada Municipio con RANK con
 -- PARTITION BY
 -- Identificar el Top 3 de alojamientos más rentables por municipio.
 -- Corrección: Se desacopla la agregación de Pago respecto a ReservaHabitacion 
